@@ -33,6 +33,7 @@ import {
   stripFranchiseSuffix,
 } from "@/lib/providers/jikan";
 import { useSettings } from "@/lib/settings";
+import { isAdultAnime } from "@/lib/addons-store/adult-filter";
 import { library, type LibraryItem } from "@/lib/stremio";
 import { useScrollMemory } from "@/lib/view";
 
@@ -343,10 +344,14 @@ export function AnimeView({ active = true }: { active?: boolean }) {
       const key = normalizeName(r.name, "anime");
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push(r);
+      out.push(
+        settings.hideContent.adult
+          ? { ...r, metas: r.metas.filter((m) => !isAdultAnime(m)) }
+          : r,
+      );
     }
     return out;
-  }, [addonRows]);
+  }, [addonRows, settings.hideContent.adult]);
 
   const scrollRef = useRef<HTMLElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);

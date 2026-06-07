@@ -3,6 +3,7 @@ import { useSettings } from "@/lib/settings";
 import {
   CustomCodePanel,
   DownloadsSection,
+  LocalEngineSection,
   PlayModePanel,
   PlayerEnginePanel,
   SeekBarPanel,
@@ -61,6 +62,8 @@ export function QualityPanel() {
       >
         <DownloadsSection />
       </Section>
+
+      <LocalEngineSection />
 
       <Section
         title="Custom code"

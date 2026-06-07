@@ -1,12 +1,10 @@
-import { Check, ChevronDown, Play } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { EpisodeJumper } from "@/components/episode-jumper";
 import { EpisodeWatchedMenu, type WatchedMenuTarget } from "@/components/episode-watched-menu";
 import { manualWatchedVersion, subscribeManualWatched } from "@/lib/manual-watched";
-import { Poster } from "@/components/poster";
 import type { Meta } from "@/lib/cinemeta";
-import { formatAirDate } from "@/lib/dates";
-import { formatRelativeWatched, getEpisodeProgress, resumeDefaultSeason } from "@/lib/episode-progress";
+import { getEpisodeProgress, resumeDefaultSeason } from "@/lib/episode-progress";
 import { getLastSeason, setLastSeason } from "@/lib/last-season";
 import {
   tmdbSeasonEpisodes,
@@ -17,12 +15,12 @@ import { tvdbEpisodes, tvdbSeriesByImdb, type TvdbEpisode } from "@/lib/provider
 import { useSettings } from "@/lib/settings";
 import { fetchWatchedKeySet } from "@/lib/trakt/history";
 import { useTrakt } from "@/lib/trakt/provider";
-import { useView } from "@/lib/view";
-import { NewBadge, UpcomingBadge } from "./badges";
+import { NewBadge } from "./badges";
 import { CinemetaEpisodeRow } from "./cinemeta-episodes";
 import { EpisodeLayoutToggle } from "./episode-layout-toggle";
+import { EpisodeRow } from "./series-episode-row";
 import { EpisodeStrip } from "./episode-strip";
-import { isNewEpisode, isNewSeason, isUpcomingEpisode } from "./helpers";
+import { isNewSeason } from "./helpers";
 
 export function SeriesEpisodes({
   meta,
@@ -285,121 +283,6 @@ export function SeriesEpisodes({
         />
       )}
     </div>
-  );
-}
-
-function EpisodeRow({
-  meta,
-  ep,
-  progress,
-  cinemetaThumbnail,
-  onContextMenu,
-}: {
-  meta: Meta;
-  ep: Episode;
-  progress: { ratio: number; watched: boolean; startedAt: number };
-  cinemetaThumbnail?: string;
-  onContextMenu?: (e: React.MouseEvent, season: number, episode: number, watched: boolean) => void;
-}) {
-  const { openPicker } = useView();
-  const { settings } = useSettings();
-  const tmdbStill = ep.stillPath ? `https://image.tmdb.org/t/p/w300${ep.stillPath}` : undefined;
-  const candidates = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const u of [tmdbStill, cinemetaThumbnail]) {
-      if (!u || seen.has(u)) continue;
-      seen.add(u);
-      out.push(u);
-    }
-    return out;
-  }, [tmdbStill, cinemetaThumbnail]);
-  const [imgIdx, setImgIdx] = useState(0);
-  useEffect(() => {
-    setImgIdx(0);
-  }, [ep.id]);
-  const still = candidates[imgIdx];
-  const watchedAgo = progress.startedAt > 0 ? formatRelativeWatched(progress.startedAt) : "";
-  return (
-    <button
-      data-ep={ep.episodeNumber}
-      data-no-card-ring
-      onContextMenu={(e) => onContextMenu?.(e, ep.seasonNumber, ep.episodeNumber, progress.watched)}
-      onClick={() =>
-        openPicker(
-          meta,
-          {
-            season: ep.seasonNumber,
-            episode: ep.episodeNumber,
-            name: ep.name || undefined,
-            still: still,
-            overview: ep.overview || undefined,
-          },
-          { autoPlay: settings.instantPlay },
-        )
-      }
-      className="group flex gap-6 rounded-2xl px-4 py-5 text-left transition-colors hover:bg-elevated/30"
-    >
-      <div className="relative w-[200px] shrink-0 overflow-hidden rounded-lg">
-        <Poster
-          src={still}
-          seed={String(ep.id)}
-          ratio="landscape"
-          className=""
-          onError={() => setImgIdx((i) => i + 1)}
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
-            <Play size={18} fill="currentColor" />
-          </div>
-        </div>
-        <span className="absolute left-2 top-2 rounded-md bg-canvas/95 px-1.5 py-0.5 text-[11px] font-semibold text-ink">
-          {ep.episodeNumber}
-        </span>
-        {progress.watched && (
-          <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/22 text-emerald-200 ring-1 ring-emerald-400/40 backdrop-blur-sm">
-            <Check size={12} strokeWidth={3} />
-          </span>
-        )}
-        {progress.ratio > 0.01 && (
-          <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/55">
-            <div
-              className="h-full bg-accent"
-              style={{ width: `${Math.max(2, progress.ratio * 100)}%` }}
-            />
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <h4 className="flex items-center gap-2 truncate text-[16px] font-semibold text-ink">
-          <span className="truncate">{ep.name || `Episode ${ep.episodeNumber}`}</span>
-          {isUpcomingEpisode(ep) ? <UpcomingBadge /> : isNewEpisode(ep) && <NewBadge />}
-        </h4>
-        <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-subtle">
-          <span>
-            {[
-              `S${ep.seasonNumber} E${ep.episodeNumber}`,
-              ep.runtime ? `${ep.runtime} min` : null,
-              formatAirDate(ep.airDate) || null,
-              ep.voteAverage && ep.voteAverage > 0 ? `★ ${ep.voteAverage.toFixed(1)}` : null,
-            ]
-              .filter(Boolean)
-              .join("  ·  ")}
-          </span>
-          {progress.watched && watchedAgo && (
-            <span className="text-emerald-300/85">· Watched {watchedAgo}</span>
-          )}
-          {!progress.watched && progress.ratio > 0.01 && watchedAgo && (
-            <span className="text-accent/85">
-              · {Math.round(progress.ratio * 100)}% watched · {watchedAgo}
-            </span>
-          )}
-        </p>
-        {ep.overview && (
-          <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted">{ep.overview}</p>
-        )}
-      </div>
-    </button>
   );
 }
 

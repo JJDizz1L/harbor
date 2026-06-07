@@ -161,7 +161,8 @@ import { useChromeVisibility } from "./player/hooks/use-chrome-visibility";
 import { useKeyboardShortcuts } from "./player/hooks/use-keyboard-shortcuts";
 import { useAutoRetry } from "./player/hooks/use-auto-retry";
 import { useEngineStats } from "./player/hooks/use-engine-stats";
-import { isBundledEngineUrl } from "@/lib/stremio-server";
+import { isBundledEngineUrl, isLocalEngineUrl } from "@/lib/stremio-server";
+import { torrentEngineRemove } from "@/lib/torrent/local-engine";
 import { useTrackAutoload } from "./player/hooks/use-track-autoload";
 import { useTrickplay } from "./player/hooks/use-trickplay";
 import { applySubStyle } from "@/lib/player/sub-style";
@@ -257,7 +258,9 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     settings,
   });
   const isP2pEngine =
-    isBundledEngineUrl(src.url) && !src.url.includes("/hlsv2/") && !!src.streamRef?.infoHash;
+    (isBundledEngineUrl(src.url) || isLocalEngineUrl(src.url)) &&
+    !src.url.includes("/hlsv2/") &&
+    !!src.streamRef?.infoHash;
   const { stats: engineStats, genuineFailure } = useEngineStats({
     url: src.url,
     infoHash: src.streamRef?.infoHash ?? null,
@@ -265,6 +268,13 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     active: snap.status !== "ended" && snap.videoWidth <= 0,
   });
   useWebviewMemory(engine === "mpv");
+  const prevEngineHashRef = useRef<string | null>(null);
+  useEffect(() => {
+    const hash = isLocalEngineUrl(src.url) ? src.streamRef?.infoHash ?? null : null;
+    const prev = prevEngineHashRef.current;
+    if (prev && prev !== hash) void torrentEngineRemove(prev, false);
+    prevEngineHashRef.current = hash;
+  }, [src.url, src.streamRef?.infoHash]);
   const shellSnapRef = useRef(snap);
   const volumeRestoredRef = useRef(false);
   useEffect(() => {
@@ -328,6 +338,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     openPicker,
     engineFailure: genuineFailure,
     isP2pEngine,
+    engineStats,
   });
 
   useEffect(() => {

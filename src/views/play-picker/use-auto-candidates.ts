@@ -17,7 +17,7 @@ export function useAutoCandidates(args: {
   return useMemo(() => {
     if (!filteredPicker) return [];
     const key = (s: ScoredStream) => s.url ?? s.infoHash ?? `${s.addonId}:${s.title ?? ""}`;
-    const instantTier = (s: ScoredStream) => (isCached(s) || !!s.url ? 0 : 1);
+    const instantTier = (s: ScoredStream) => (isCached(s) ? 0 : 1);
     const addonRank = new Map<string, number>();
     (addons ?? []).forEach((a, i) => {
       if (a.manifest?.id) addonRank.set(a.manifest.id, i);

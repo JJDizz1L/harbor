@@ -28,8 +28,6 @@ export function CinematicPlayerLoader({
   const hasProgress = usePlaybackFlag(() => getPlaybackPosition() > 0.3);
   if (snap.durationSec > 0 && hasProgress) {
     everPlayedRef.current = true;
-  } else if (snap.status === "playing" || snap.status === "paused") {
-    everPlayedRef.current = true;
   }
   const sessionKey = `${src.meta.id}::${src.episode?.season ?? ""}:${src.episode?.episode ?? ""}`;
   const lastSessionRef = useRef(sessionKey);

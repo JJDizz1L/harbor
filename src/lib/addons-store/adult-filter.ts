@@ -228,6 +228,24 @@ export function isAdultText(...fields: Array<string | undefined | null>): boolea
   return false;
 }
 
+export function adultContentHidden(): boolean {
+  try {
+    const raw = localStorage.getItem("harbor.settings");
+    if (!raw) return true;
+    const parsed = JSON.parse(raw) as { hideContent?: { adult?: boolean } };
+    return parsed.hideContent?.adult !== false;
+  } catch {
+    return true;
+  }
+}
+
+const ADULT_ANIME_GENRES = new Set(["hentai", "erotica"]);
+
+export function isAdultAnime(meta: { name?: string; genres?: string[] }): boolean {
+  if (meta.genres?.some((g) => ADULT_ANIME_GENRES.has(g.toLowerCase()))) return true;
+  return isAdultText(meta.name);
+}
+
 export function debugMatchAdult(
   ...fields: Array<string | undefined | null>
 ): string | null {

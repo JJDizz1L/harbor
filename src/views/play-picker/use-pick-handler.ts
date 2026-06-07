@@ -10,6 +10,7 @@ import type { PlayInvite } from "@/lib/together/protocol";
 import { buildPlayInvite } from "@/lib/together/build-invite";
 import { type PlayEpisode, type PlayerSrc } from "@/lib/view";
 import { openUrl } from "@/lib/window";
+import { enqueueDownload } from "@/lib/download/downloads-store";
 import { humanError, isDebridFailure } from "./picker-utils";
 
 export function usePickHandler({
@@ -24,6 +25,8 @@ export function usePickHandler({
   sendInvite,
   claimHost,
   openPlayer,
+  intent,
+  onDownloadStarted,
   autoActive,
   autoAttemptIdx,
   autoCandidatesLength,
@@ -45,6 +48,8 @@ export function usePickHandler({
   sendInvite: (invite: PlayInvite) => void;
   claimHost: (fresh: boolean) => void;
   openPlayer: (src: PlayerSrc) => void;
+  intent?: "play" | "download";
+  onDownloadStarted?: (label?: string | null) => void;
   autoActive: boolean;
   autoAttemptIdx: number;
   autoCandidatesLength: number;
@@ -136,6 +141,20 @@ export function usePickHandler({
         if (!willRetry && !autoActive) {
           setResolveError("This source isn't actually cached on your debrid yet. Try another.");
         }
+        return;
+      }
+      if (intent === "download") {
+        const label =
+          [stream.resolution, stream.source].filter(Boolean).join(" ") ||
+          stream.parsedTitle ||
+          stream.title ||
+          stream.name ||
+          stream.addonName ||
+          null;
+        void enqueueDownload({ meta, episode, streamLabel: label, url: playUrl });
+        opened = true;
+        setResolving(null);
+        onDownloadStarted?.(label);
         return;
       }
       if (inSession && canInvite && inviteSentRef.current == null) {

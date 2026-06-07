@@ -14,6 +14,7 @@ import { useView } from "@/lib/view";
 import { useAnilistWatched } from "@/lib/anilist/use-anilist-watched";
 import { AnimeEpisodeStrip } from "./anime-episode-strip";
 import { UpcomingBadge } from "./badges";
+import { EpisodeDownloadButton } from "./episode-download-button";
 import { EpisodeLayoutToggle } from "./episode-layout-toggle";
 import { isUpcomingDate } from "./helpers";
 
@@ -266,89 +267,89 @@ function AnimeEpisodeRow({
   const { openPicker } = useView();
   const { settings } = useSettings();
   const watchedAgo = progress.startedAt > 0 ? formatRelativeWatched(progress.startedAt) : "";
+  const playEpisode = {
+    season: ep.seasonNumber || 1,
+    episode: ep.number,
+    name: ep.title,
+    still: ep.thumbnail ?? undefined,
+    overview: ep.synopsis || undefined,
+    kitsuStreamId: ep.streamId,
+    imdbId: ep.imdbId,
+    imdbSeason: ep.imdbSeason,
+    imdbEpisode: ep.imdbEpisode,
+  };
   return (
-    <button
+    <div
       data-ep={ep.number}
       data-no-card-ring
-      onClick={() =>
-        openPicker(
-          meta,
-          {
-            season: ep.seasonNumber || 1,
-            episode: ep.number,
-            name: ep.title,
-            still: ep.thumbnail ?? undefined,
-            overview: ep.synopsis || undefined,
-            kitsuStreamId: ep.streamId,
-            imdbId: ep.imdbId,
-            imdbSeason: ep.imdbSeason,
-            imdbEpisode: ep.imdbEpisode,
-          },
-          { autoPlay: settings.instantPlay },
-        )
-      }
-      className="group flex gap-6 rounded-2xl px-4 py-5 text-left transition-colors hover:bg-elevated/30"
+      className="group flex gap-6 rounded-2xl px-4 py-5 transition-colors hover:bg-elevated/30"
     >
-      <div className="relative w-[200px] shrink-0">
-        <Poster
-          src={ep.thumbnail ?? undefined}
-          seed={String(ep.id)}
-          ratio="landscape"
-          className="rounded-lg"
-        />
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
-            <Play size={18} fill="currentColor" />
+      <button
+        onClick={() => openPicker(meta, playEpisode, { autoPlay: settings.instantPlay })}
+        className="flex min-w-0 flex-1 gap-6 text-left"
+      >
+        <div className="relative w-[200px] shrink-0">
+          <Poster
+            src={ep.thumbnail ?? undefined}
+            seed={String(ep.id)}
+            ratio="landscape"
+            className="rounded-lg"
+          />
+          <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
+              <Play size={18} fill="currentColor" />
+            </div>
           </div>
-        </div>
-        <span className="absolute left-2 top-2 rounded-md bg-canvas/95 px-1.5 py-0.5 text-[11px] font-semibold text-ink">
-          {ep.number}
-        </span>
-        {progress.watched && (
-          <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/22 text-emerald-200 ring-1 ring-emerald-400/40 backdrop-blur-sm">
-            <Check size={12} strokeWidth={3} />
+          <span className="absolute left-2 top-2 rounded-md bg-canvas/95 px-1.5 py-0.5 text-[11px] font-semibold text-ink">
+            {ep.number}
           </span>
-        )}
-        {progress.ratio > 0.01 && (
-          <div className="absolute inset-x-1 bottom-1 h-[3px] overflow-hidden rounded-full bg-black/55">
-            <div
-              className="h-full rounded-full bg-accent"
-              style={{ width: `${Math.max(2, progress.ratio * 100)}%` }}
-            />
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <h4 className="flex items-center gap-2 truncate text-[16px] font-semibold text-ink">
-          <span className="truncate">{ep.title || `Episode ${ep.number}`}</span>
-          {ep.filler && <FillerBadge />}
-          {isUpcomingDate(ep.airdate) ? <UpcomingBadge /> : null}
-        </h4>
-        <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-subtle">
-          <span>
-            {[
-              `E${ep.number}`,
-              ep.absoluteNumber && ep.absoluteNumber !== ep.number ? `Abs E${ep.absoluteNumber}` : null,
-              ep.length ? `${ep.length} min` : null,
-              formatAirDate(ep.airdate) || null,
-            ]
-              .filter(Boolean)
-              .join("  ·  ")}
-          </span>
-          {progress.watched && watchedAgo && (
-            <span className="text-emerald-300/85">· Watched {watchedAgo}</span>
-          )}
-          {!progress.watched && progress.ratio > 0.01 && watchedAgo && (
-            <span className="text-accent/85">
-              · {Math.round(progress.ratio * 100)}% watched · {watchedAgo}
+          {progress.watched && (
+            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/22 text-emerald-200 ring-1 ring-emerald-400/40 backdrop-blur-sm">
+              <Check size={12} strokeWidth={3} />
             </span>
           )}
-        </p>
-        {ep.synopsis && (
-          <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted">{ep.synopsis}</p>
-        )}
-      </div>
-    </button>
+          {progress.ratio > 0.01 && (
+            <div className="absolute inset-x-1 bottom-1 h-[3px] overflow-hidden rounded-full bg-black/55">
+              <div
+                className="h-full rounded-full bg-accent"
+                style={{ width: `${Math.max(2, progress.ratio * 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <h4 className="flex items-center gap-2 truncate text-[16px] font-semibold text-ink">
+            <span className="truncate">{ep.title || `Episode ${ep.number}`}</span>
+            {ep.filler && <FillerBadge />}
+            {isUpcomingDate(ep.airdate) ? <UpcomingBadge /> : null}
+          </h4>
+          <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-subtle">
+            <span>
+              {[
+                `E${ep.number}`,
+                ep.absoluteNumber && ep.absoluteNumber !== ep.number ? `Abs E${ep.absoluteNumber}` : null,
+                ep.length ? `${ep.length} min` : null,
+                formatAirDate(ep.airdate) || null,
+              ]
+                .filter(Boolean)
+                .join("  ·  ")}
+            </span>
+            {progress.watched && watchedAgo && (
+              <span className="text-emerald-300/85">· Watched {watchedAgo}</span>
+            )}
+            {!progress.watched && progress.ratio > 0.01 && watchedAgo && (
+              <span className="text-accent/85">
+                · {Math.round(progress.ratio * 100)}% watched · {watchedAgo}
+              </span>
+            )}
+          </p>
+          {ep.synopsis && (
+            <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted">{ep.synopsis}</p>
+          )}
+        </div>
+      </button>
+      <EpisodeDownloadButton meta={meta} episode={playEpisode} />
+    </div>
   );
 }
 

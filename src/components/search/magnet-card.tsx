@@ -57,8 +57,8 @@ export function MagnetCard({ raw, onClose }: { raw: string; onClose: () => void 
       setError("The bundled streaming engine is not running. Direct torrent play needs the desktop app.");
       return;
     }
-    const list = await createAndListFiles(parsed.infoHash, parsed.trackers);
-    const videos = (list ?? []).filter(isVideoFile).sort((a, b) => b.length - a.length);
+    const created = await createAndListFiles(parsed.infoHash, parsed.trackers);
+    const videos = (created?.files ?? []).filter(isVideoFile).sort((a, b) => b.length - a.length);
     if (videos.length > 1) {
       setFiles(videos);
       setMode("picking");

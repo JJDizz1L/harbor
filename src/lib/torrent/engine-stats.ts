@@ -1,4 +1,5 @@
-import { getStremioServerUrl } from "@/lib/stremio-server";
+import { getStremioServerUrl, isLocalEngineUrl } from "@/lib/stremio-server";
+import { torrentEngineStats } from "@/lib/torrent/local-engine";
 
 export type EngineStats = {
   peers: number;
@@ -81,7 +82,17 @@ export async function fetchEngineStats(
   fileIdx: number,
   prev: EngineStats | null,
   signal?: AbortSignal,
+  url?: string,
 ): Promise<StatsFetch> {
+  if (url && isLocalEngineUrl(url)) {
+    try {
+      const raw = await torrentEngineStats(infoHash, fileIdx < 0 ? null : fileIdx);
+      if (!raw) return { kind: "down" };
+      return { kind: "ok", stats: parseEngineStats(raw, prev) };
+    } catch {
+      return { kind: "down" };
+    }
+  }
   try {
     const res = await fetch(
       `${getStremioServerUrl()}/${infoHash.toLowerCase()}/${fileIdx}/stats.json`,

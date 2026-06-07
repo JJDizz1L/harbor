@@ -1130,8 +1130,8 @@ html[data-theme-card="noir"] [data-harbor-player] {
   --color-elevated: var(--color-elevated);
   --color-raised: var(--color-raised);
   --color-ink: var(--color-ink);
-  --color-edge: rgba(255, 255, 255, 0.08);
-  --color-edge-soft: rgba(255, 255, 255, 0.03);
+  --color-edge: rgba(255, 255, 255, 0.16);
+  --color-edge-soft: rgba(255, 255, 255, 0.1);
 }
 
 html[data-theme-card="noir"] ::selection {

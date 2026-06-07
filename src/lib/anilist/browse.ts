@@ -2,10 +2,11 @@ import type { Meta } from "@/lib/cinemeta";
 import { anilistRequest } from "./client";
 import { anilistMediaToMeta } from "./to-meta";
 import type { AnilistMedia } from "./types";
+import { adultContentHidden } from "@/lib/addons-store/adult-filter";
 
-const BROWSE_QUERY = `query ($page: Int, $perPage: Int, $sort: [MediaSort]) {
+const BROWSE_QUERY = `query ($page: Int, $perPage: Int, $sort: [MediaSort], $isAdult: Boolean) {
   Page(page: $page, perPage: $perPage) {
-    media(type: ANIME, sort: $sort, isAdult: false) {
+    media(type: ANIME, sort: $sort, isAdult: $isAdult) {
       id
       idMal
       title { romaji english native userPreferred }
@@ -28,7 +29,7 @@ async function fetchAnilistBrowse(sort: string, count: number): Promise<Meta[]> 
     Array.from({ length: pages }, (_, i) =>
       anilistRequest<BrowseResponse>(
         BROWSE_QUERY,
-        { page: i + 1, perPage, sort: [sort] },
+        { page: i + 1, perPage, sort: [sort], isAdult: adultContentHidden() ? false : null },
         undefined,
         true,
       ).catch(() => null),

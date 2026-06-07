@@ -94,16 +94,16 @@ export function PlayerEnginePanel() {
             </>
           )}
           <ToggleRow
-            label="Fallback to Stremio Server transcoding"
-            sub="When a stream fails to decode, retry through Stremio Server's HLS transcoder running on localhost:11470. Requires Stremio Server to be running."
-            value={settings.stremioServerTranscode}
-            onChange={(v) => update({ stremioServerTranscode: v })}
-          />
-          <ToggleRow
             label="Direct torrent streaming"
             sub="When you have no debrid set up, or a torrent isn't cached, stream it straight from the bundled engine on localhost:11470. This connects to peers over your own connection, the same way Stremio's built-in streaming does."
             value={settings.directTorrentStream}
             onChange={(v) => update({ directTorrentStream: v })}
+          />
+          <ToggleRow
+            label="Use Harbor's built-in engine (beta)"
+            sub="Stream torrents through Harbor's own Rust peer-to-peer engine instead of the bundled Stremio Server. Falls back automatically if it can't connect. Status and a self-test live in the Local engine card below."
+            value={settings.localEngine}
+            onChange={(v) => update({ localEngine: v })}
           />
           <ToggleRow
             label="Always re-encode when casting (recommended)"

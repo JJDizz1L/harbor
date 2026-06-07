@@ -4,6 +4,7 @@ import type { Meta } from "@/lib/cinemeta";
 import { Poster } from "@/components/poster";
 import { useSettings } from "@/lib/settings";
 import { useView } from "@/lib/view";
+import { EpisodeDownloadButton } from "./episode-download-button";
 
 type CinemetaVideo = NonNullable<Meta["videos"]>[number];
 
@@ -73,48 +74,48 @@ export function CinemetaEpisodeRow({ meta, ep }: { meta: Meta; ep: CinemetaVideo
   const { openPicker } = useView();
   const { settings } = useSettings();
   const aired = ep.released ?? ep.firstAired ?? null;
+  const playEpisode = {
+    season: ep.season!,
+    episode: ep.episode!,
+    name: ep.name || ep.title || undefined,
+    still: ep.thumbnail || undefined,
+    overview: undefined,
+  };
   return (
-    <button
+    <div
       data-no-card-ring
-      onClick={() =>
-        openPicker(
-          meta,
-          {
-            season: ep.season!,
-            episode: ep.episode!,
-            name: ep.name || ep.title || undefined,
-            still: ep.thumbnail || undefined,
-            overview: undefined,
-          },
-          { autoPlay: settings.instantPlay },
-        )
-      }
-      className="group flex gap-6 rounded-2xl px-4 py-5 text-left transition-colors hover:bg-elevated/30"
+      className="group flex items-center gap-4 rounded-2xl px-4 py-5 transition-colors hover:bg-elevated/30"
     >
-      <div className="relative w-[200px] shrink-0 overflow-hidden rounded-lg">
-        <Poster
-          src={ep.thumbnail}
-          seed={`${meta.id}-${ep.season}-${ep.episode}`}
-          ratio="landscape"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
-            <Play size={18} fill="currentColor" />
+      <button
+        onClick={() => openPicker(meta, playEpisode, { autoPlay: settings.instantPlay })}
+        className="flex min-w-0 flex-1 gap-6 text-left"
+      >
+        <div className="relative w-[200px] shrink-0 overflow-hidden rounded-lg">
+          <Poster
+            src={ep.thumbnail}
+            seed={`${meta.id}-${ep.season}-${ep.episode}`}
+            ratio="landscape"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
+              <Play size={18} fill="currentColor" />
+            </div>
           </div>
+          <span className="absolute left-2 top-2 rounded-md bg-canvas/95 px-1.5 py-0.5 text-[11px] font-semibold text-ink">
+            {ep.episode}
+          </span>
         </div>
-        <span className="absolute left-2 top-2 rounded-md bg-canvas/95 px-1.5 py-0.5 text-[11px] font-semibold text-ink">
-          {ep.episode}
-        </span>
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <h4 className="truncate text-[16px] font-semibold text-ink">
-          {ep.name || ep.title || `Episode ${ep.episode}`}
-        </h4>
-        <p className="text-[12px] text-ink-subtle">
-          {[`S${ep.season} E${ep.episode}`, formatAired(aired)].filter(Boolean).join("  ·  ")}
-        </p>
-      </div>
-    </button>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <h4 className="truncate text-[16px] font-semibold text-ink">
+            {ep.name || ep.title || `Episode ${ep.episode}`}
+          </h4>
+          <p className="text-[12px] text-ink-subtle">
+            {[`S${ep.season} E${ep.episode}`, formatAired(aired)].filter(Boolean).join("  ·  ")}
+          </p>
+        </div>
+      </button>
+      <EpisodeDownloadButton meta={meta} episode={playEpisode} />
+    </div>
   );
 }
 

@@ -12,6 +12,11 @@ export function isBundledEngineUrl(url: string | undefined | null): boolean {
   return /^https?:\/\/(127\.0\.0\.1|localhost):11470\//i.test(url);
 }
 
+export function isLocalEngineUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  return /^https?:\/\/(127\.0\.0\.1|localhost):\d+\/stream\//i.test(url);
+}
+
 let probeCache: { ok: boolean; at: number } | null = null;
 
 export type CastServerStatus = {

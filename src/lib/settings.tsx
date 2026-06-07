@@ -85,6 +85,7 @@ export type Settings = {
   playerMpvEmbed: boolean;
   stremioServerTranscode: boolean;
   directTorrentStream: boolean;
+  localEngine: boolean;
   castAlwaysTranscode: boolean;
   playerAnime4kShaders: string[];
   playerAnime4kMode: string;
@@ -268,6 +269,7 @@ const DEFAULT: Settings = {
   playerMpvEmbed: true,
   stremioServerTranscode: false,
   directTorrentStream: true,
+  localEngine: false,
   castAlwaysTranscode: true,
   playerAnime4kShaders: [],
   playerAnime4kMode: "A",

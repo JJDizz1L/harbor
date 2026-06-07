@@ -10,6 +10,7 @@ import type { DebridStore } from "@/lib/debrid/types";
 import type { Meta } from "@/lib/cinemeta";
 import type { PlayerSrc, PlayEpisode } from "@/lib/view";
 import { BLACK_SCREEN_GRACE_MS, MAX_AUTORETRY_ATTEMPTS, ROOM_STALL_MS, SLOW_LOAD_MS, STUCK_AUTORETRY_MS } from "../player-utils";
+import { GENUINE_FAILURE_WINDOW_MS, type EngineStats } from "@/lib/torrent/engine-stats";
 
 type OpenPicker = (
   meta: Meta,
@@ -29,8 +30,9 @@ export function useAutoRetry(params: {
   openPicker: OpenPicker;
   engineFailure: boolean;
   isP2pEngine: boolean;
+  engineStats: EngineStats | null;
 }) {
-  const { bridgeRef, src, snap, stremioServerTranscode, instantPlay, inRoom, debrids, selfFrameReadyRef, openPicker, engineFailure, isP2pEngine } = params;
+  const { bridgeRef, src, snap, stremioServerTranscode, instantPlay, inRoom, debrids, selfFrameReadyRef, openPicker, engineFailure, isP2pEngine, engineStats } = params;
   const isLocal = isLocalUrl(src.url);
   const isLive = src.meta.id.startsWith("iptv:");
   const ENGINE_FIRST_FRAME_GRACE_MS = 20_000;
@@ -43,6 +45,9 @@ export function useAutoRetry(params: {
   }
   const snapRef = useRef(snap);
   snapRef.current = snap;
+  const engineStatsRef = useRef(engineStats);
+  engineStatsRef.current = engineStats;
+  const dlRef = useRef({ bytes: 0, at: 0 });
 
   const hasProgress = usePlaybackFlag(
     () => getPlaybackPosition() > 0.5 || getPlaybackBuffered() > 0.5,
@@ -69,6 +74,7 @@ export function useAutoRetry(params: {
     sameUrlRetriedRef.current = false;
     debridFailoverTriedRef.current = false;
     liveRetryCountRef.current = 0;
+    dlRef.current = { bytes: 0, at: Date.now() };
     setTranscodedUrl(null);
   }, [src.url]);
 
@@ -317,7 +323,17 @@ export function useAutoRetry(params: {
         triggerAutoRetry("engine reports no peers and no download progress");
         return;
       }
+      const st = engineStatsRef.current;
+      if (st && st.downloaded > dlRef.current.bytes + 65536) {
+        dlRef.current = { bytes: st.downloaded, at: Date.now() };
+      }
+      const progressing =
+        !!st &&
+        (st.downloadSpeed > 0 ||
+          st.unchoked > 0 ||
+          (dlRef.current.at > 0 && Date.now() - dlRef.current.at < GENUINE_FAILURE_WINDOW_MS));
       if (
+        !progressing &&
         snapRef.current.status !== "paused" &&
         snapRef.current.videoWidth <= 0 &&
         getPlaybackPosition() < 0.5 &&

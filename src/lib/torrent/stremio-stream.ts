@@ -47,14 +47,21 @@ export function isVideoFile(f: TorrentFile): boolean {
   return VIDEO_EXT.test(f.name);
 }
 
+export type CreatedTorrent = { files: TorrentFile[]; guessedFileIdx: number | null };
+
 export async function createAndListFiles(
   infoHash: string,
   trackers: string[],
-  timeoutMs = 7000,
-): Promise<TorrentFile[] | null> {
+  seriesInfo?: { season?: number | null; episode?: number | null } | null,
+  timeoutMs = 15000,
+): Promise<CreatedTorrent | null> {
   const hash = infoHash.toLowerCase();
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
+  const guessFileIdx =
+    seriesInfo && seriesInfo.season != null && seriesInfo.episode != null
+      ? { season: seriesInfo.season, episode: seriesInfo.episode }
+      : {};
   try {
     const res = await fetch(`${getStremioServerUrl()}/${hash}/create`, {
       method: "POST",
@@ -62,18 +69,28 @@ export async function createAndListFiles(
       body: JSON.stringify({
         torrent: { infoHash: hash },
         peerSearch: { sources: [`dht:${hash}`, ...trackers], min: 40, max: 200 },
+        guessFileIdx,
       }),
       signal: ctrl.signal,
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as { files?: RawFile[]; torrent?: { files?: RawFile[] } };
+    const json = (await res.json()) as {
+      files?: RawFile[];
+      torrent?: { files?: RawFile[] };
+      guessedFileIdx?: number;
+    };
     const raw = json.files ?? json.torrent?.files;
     if (!Array.isArray(raw)) return null;
-    return raw.map((f, idx) => ({
+    const files = raw.map((f, idx) => ({
       idx: typeof f.idx === "number" ? f.idx : idx,
       name: fileName(f),
       length: Number(f.length ?? f.size ?? 0) || 0,
     }));
+    const guessedFileIdx =
+      typeof json.guessedFileIdx === "number" && json.guessedFileIdx >= 0
+        ? json.guessedFileIdx
+        : null;
+    return { files, guessedFileIdx };
   } catch {
     return null;
   } finally {

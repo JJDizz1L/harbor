@@ -15,6 +15,7 @@ import { AutoExhaustedModal } from "./play-picker/auto-exhausted-modal";
 import { AutoPlayTransition } from "./play-picker/auto-play-transition";
 import { BackdropLayer } from "./play-picker/backdrop-layer";
 import { CinematicLoader } from "./play-picker/cinematic-loader";
+import { DownloadStarted } from "./play-picker/download-started";
 import { DebridDownModal } from "./play-picker/debrid-down-modal";
 import { EmptyState, FilteredOutState, NoSourcesState, TheatresEmptyState } from "./play-picker/empty-states";
 import { CachedFilterPill, LanguageFilterPill } from "./play-picker/filter-pills";
@@ -44,12 +45,15 @@ export function PlayPicker({
   episode,
   autoPlay,
   attempt,
+  intent,
 }: {
   meta: Meta;
   episode?: PlayEpisode;
   autoPlay?: boolean;
   attempt?: number;
+  intent?: "play" | "download";
 }) {
+  const isDownload = intent === "download";
   const { openPlayer, openSettings, exitPickerToDetail } = useView();
   const backToDetail = () => exitPickerToDetail(meta);
   const { settings } = useSettings();
@@ -64,9 +68,10 @@ export function PlayPicker({
   const [failedStreams, setFailedStreams] = useState<Set<ScoredStream>>(new Set());
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [downloadConfirm, setDownloadConfirm] = useState<{ label: string | null } | null>(null);
   const [strictMode, setStrictMode] = useState(settings.streamFilterLevel === "strict");
   const [forceShowAll, setForceShowAll] = useState(false);
-  const filterDisabled = settings.streamFilterLevel === "off" || forceShowAll;
+  const filterDisabled = settings.streamFilterLevel === "off" || forceShowAll || isDownload;
   const {
     result,
     loading,
@@ -130,7 +135,7 @@ export function PlayPicker({
 
   const isCached = useCallback(
     (s: ScoredStream) =>
-      s.url != null ||
+      (s.url != null && !s.infoHash) ||
       debrids.some((d) => s.cached[d.slug] === true || s.inLibrary[d.slug] === true),
     [debrids],
   );
@@ -202,7 +207,7 @@ export function PlayPicker({
   const [autoAttemptIdx, setAutoAttemptIdx] = useState(0);
   const [autoExhausted, setAutoExhausted] = useState(false);
   const [autoCancelled, setAutoCancelled] = useState(false);
-  const autoActive = !!(autoPlay || wasInvitedTo(inviteKey)) && !autoCancelled && !autoExhausted;
+  const autoActive = !!(autoPlay || wasInvitedTo(inviteKey)) && !autoCancelled && !autoExhausted && !isDownload;
   useEffect(() => {
     if (!autoActive) return;
     const t = window.setTimeout(() => setAutoCancelled(true), 45_000);
@@ -247,6 +252,8 @@ export function PlayPicker({
     sendInvite,
     claimHost,
     openPlayer,
+    intent,
+    onDownloadStarted: (label) => setDownloadConfirm({ label: label ?? null }),
     autoActive,
     autoAttemptIdx,
     autoCandidatesLength: autoCandidates.length,
@@ -417,6 +424,17 @@ export function PlayPicker({
     );
   }
 
+  if (downloadConfirm) {
+    return (
+      <DownloadStarted
+        meta={meta}
+        episode={episode}
+        label={downloadConfirm.label}
+        onDone={backToDetail}
+      />
+    );
+  }
+
   return (
     <main className="absolute inset-0 z-50 overflow-y-auto bg-canvas">
       <BackdropLayer src={backdropSrc} />
@@ -437,6 +455,12 @@ export function PlayPicker({
 
       <div className="relative mx-auto flex min-h-full w-full max-w-5xl flex-col gap-12 px-12 pb-32 pt-32">
         <PickerHeader meta={meta} episode={episode} />
+
+        {isDownload && (
+          <div className="rounded-2xl border border-edge-soft bg-elevated/60 px-5 py-3.5 text-[13.5px] text-ink-muted">
+            Choose a source to save offline. You can track progress on the Downloads page.
+          </div>
+        )}
 
         {stubBanner && (
           <div className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-5 py-4 text-[13.5px] text-amber-100">
@@ -512,7 +536,7 @@ export function PlayPicker({
           </div>
         )}
 
-        {settings.pickerLayout === "stremio" && filteredPicker && filteredPicker.all.length > 0 ? (
+        {(settings.pickerLayout === "stremio" || isDownload) && filteredPicker && filteredPicker.all.length > 0 ? (
           <StremioLayout
             streams={filteredPicker.all}
             addons={addons}

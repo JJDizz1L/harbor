@@ -28,16 +28,24 @@ export function buildDefaultFilename(
   meta: Meta,
   episode: PlayEpisode | undefined,
   url: string,
+  streamLabel?: string | null,
 ): string {
   const ext = extensionFromUrl(url);
   const title = sanitizeName(meta.name || "video");
+  const tag = qualityTag(streamLabel);
   if (episode) {
     const s = String(episode.season).padStart(2, "0");
     const e = String(episode.episode).padStart(2, "0");
-    return `${title} - S${s}E${e}.${ext}`;
+    return `${title} - S${s}E${e}${tag}.${ext}`;
   }
   if (meta.releaseInfo) {
-    return `${title} (${sanitizeName(meta.releaseInfo)}).${ext}`;
+    return `${title} (${sanitizeName(meta.releaseInfo)})${tag}.${ext}`;
   }
-  return `${title}.${ext}`;
+  return `${title}${tag}.${ext}`;
+}
+
+function qualityTag(streamLabel?: string | null): string {
+  if (!streamLabel) return "";
+  const cleaned = sanitizeName(streamLabel).replace(/\s+/g, " ").trim().slice(0, 40);
+  return cleaned ? ` [${cleaned}]` : "";
 }

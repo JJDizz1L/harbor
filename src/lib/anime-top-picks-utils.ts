@@ -7,6 +7,7 @@ import { hashStr } from "@/lib/feed/daily-rows-types";
 import { getDownvotedIds, getUpvotedIds } from "@/lib/feed/preferences";
 import { recentlyPlayed, watchTitleKey } from "@/lib/playback-history";
 import { animeFranchiseKey, stripFranchiseSuffix } from "@/lib/providers/jikan";
+import { adultContentHidden, isAdultAnime } from "@/lib/addons-store/adult-filter";
 import type { LibraryItem } from "@/lib/stremio";
 
 export const ANIME_GENRE_TO_JIKAN: Record<string, number> = {
@@ -138,8 +139,10 @@ export function buildExclusion(input: {
   for (const fk of finishedFranchises(input.libItems).franchises) blockedFranchises.add(fk);
   const watched = recentlyPlayed();
   const voted = new Set<string>([...getDownvotedIds(), ...getUpvotedIds()]);
+  const hideAdult = adultContentHidden();
   return {
     skip: (m: Meta) =>
+      (hideAdult && isAdultAnime(m)) ||
       blockedFranchises.has(animeFranchiseKey(m.name)) ||
       watched.ids.has(m.id) ||
       watched.titles.has(watchTitleKey(m.name)) ||

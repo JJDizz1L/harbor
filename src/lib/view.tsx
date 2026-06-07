@@ -4,7 +4,7 @@ import { profileFromMeta, trackEvent } from "./discover";
 import type { StreamingService } from "./settings";
 import { useTogether } from "./together/provider";
 
-export type View = "home" | "settings" | "anime" | "discover" | "addons" | "calendar" | "movies" | "shows" | "library" | "live";
+export type View = "home" | "settings" | "anime" | "discover" | "addons" | "calendar" | "movies" | "shows" | "library" | "live" | "downloads";
 
 export type PlayEpisode = {
   season: number;
@@ -66,13 +66,14 @@ export type Frame =
   | { kind: "shows" }
   | { kind: "library" }
   | { kind: "live" }
+  | { kind: "downloads" }
   | { kind: "service"; service: StreamingService }
   | { kind: "meta"; meta: Meta; liveContext?: boolean }
   | { kind: "person"; id: number }
   | { kind: "filter"; filter: MetaFilter }
   | { kind: "award"; awardType: import("./providers/wikidata").AwardType }
   | { kind: "anime-award"; sourceId: import("./anime-awards").AwardSourceId }
-  | { kind: "picker"; meta: Meta; episode?: PlayEpisode; autoPlay?: boolean; attempt?: number }
+  | { kind: "picker"; meta: Meta; episode?: PlayEpisode; autoPlay?: boolean; attempt?: number; intent?: "play" | "download" }
   | { kind: "player"; src: PlayerSrc };
 
 export type ScrollSnapshot = {
@@ -115,11 +116,11 @@ type ViewValue = {
   animeAwardSource: import("./anime-awards").AwardSourceId | null;
   openAnimeAward: (s: import("./anime-awards").AwardSourceId) => void;
   homeResetTick: number;
-  picker: { meta: Meta; episode?: PlayEpisode; autoPlay?: boolean; attempt?: number } | null;
+  picker: { meta: Meta; episode?: PlayEpisode; autoPlay?: boolean; attempt?: number; intent?: "play" | "download" } | null;
   openPicker: (
     meta: Meta,
     episode?: PlayEpisode,
-    opts?: { autoPlay?: boolean; attempt?: number },
+    opts?: { autoPlay?: boolean; attempt?: number; intent?: "play" | "download" },
   ) => void;
   player: PlayerSrc | null;
   openPlayer: (src: PlayerSrc) => void;
@@ -179,6 +180,8 @@ function frameKey(f: Frame): string {
       return "library";
     case "live":
       return "live";
+    case "downloads":
+      return "downloads";
     case "service":
       return `service:${f.service}`;
     case "meta":
@@ -262,6 +265,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       if (f.kind === "shows") return "shows";
       if (f.kind === "library") return "library";
       if (f.kind === "live") return "live";
+      if (f.kind === "downloads") return "downloads";
       if (f.kind === "home") return "home";
     }
     return "home";
@@ -276,7 +280,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
   const awardType = top.kind === "award" ? top.awardType : null;
   const picker =
     top.kind === "picker"
-      ? { meta: top.meta, episode: top.episode, autoPlay: top.autoPlay, attempt: top.attempt }
+      ? { meta: top.meta, episode: top.episode, autoPlay: top.autoPlay, attempt: top.attempt, intent: top.intent }
       : null;
   const player = top.kind === "player" ? top.src : null;
   const canGoBack = stack.length > 1;
@@ -363,6 +367,11 @@ export function ViewProvider({ children }: { children: ReactNode }) {
         scrollMem.current.clear();
         rowScrollMem.current.clear();
         return [{ kind: "calendar" }];
+      }
+      if (v === "downloads") {
+        scrollMem.current.clear();
+        rowScrollMem.current.clear();
+        return [{ kind: "downloads" }];
       }
       if (v === "movies") {
         scrollMem.current.clear();
@@ -493,13 +502,14 @@ export function ViewProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openPicker = useCallback(
-    (m: Meta, ep?: PlayEpisode, opts?: { autoPlay?: boolean; attempt?: number }) => {
+    (m: Meta, ep?: PlayEpisode, opts?: { autoPlay?: boolean; attempt?: number; intent?: "play" | "download" }) => {
       setStack((cur) => {
         const t = cur[cur.length - 1];
         if (
           t.kind === "picker" &&
           t.meta.id === m.id &&
-          (t.attempt ?? 0) === (opts?.attempt ?? 0)
+          (t.attempt ?? 0) === (opts?.attempt ?? 0) &&
+          (t.intent ?? "play") === (opts?.intent ?? "play")
         ) {
           return cur;
         }
@@ -509,6 +519,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
           episode: ep,
           autoPlay: opts?.autoPlay,
           attempt: opts?.attempt,
+          intent: opts?.intent,
         });
       });
     },

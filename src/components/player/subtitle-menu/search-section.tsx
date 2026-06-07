@@ -14,7 +14,11 @@ export function SearchSection(props: SubtitleMenuProps) {
   const { metaImdbId, metaTitle, season, episode, onAddSubtitle } = props;
   const { settings } = useSettings();
   const { authKey } = useAuth();
-  const [query, setQuery] = useState(metaTitle ?? "");
+  const [query, setQuery] = useState(
+    metaTitle && season != null && episode != null
+      ? `${metaTitle} S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`
+      : (metaTitle ?? ""),
+  );
   const [results, setResults] = useState<SubResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [hideHI, setHideHI] = useState(false);

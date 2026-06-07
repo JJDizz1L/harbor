@@ -211,7 +211,6 @@ fn apply_pre_init(
     }
 
     if args.hdr_to_sdr.unwrap_or(false) {
-        set("target-colorspace-hint", "yes")?;
         set("tone-mapping", "bt.2446a")?;
     }
 
@@ -335,7 +334,7 @@ pub async fn mpv_start(
     }
     let _ = mpv.set_property("cache", "yes");
     let _ = mpv.set_property("cache-secs", "60");
-    let _ = mpv.set_property("cache-pause", "no");
+    let _ = mpv.set_property("cache-pause", "yes");
     let _ = mpv.set_property("demuxer-max-bytes", "128MiB");
     let _ = mpv.set_property("demuxer-max-back-bytes", "32MiB");
     let _ = mpv.set_property("demuxer-readahead-secs", "60");

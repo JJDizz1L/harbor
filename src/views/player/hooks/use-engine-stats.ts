@@ -6,7 +6,7 @@ import {
   ENGINE_DOWN_STRIKES,
   type EngineStats,
 } from "@/lib/torrent/engine-stats";
-import { isBundledEngineUrl } from "@/lib/stremio-server";
+import { isBundledEngineUrl, isLocalEngineUrl } from "@/lib/stremio-server";
 
 const POLL_MS = 2000;
 const GROWTH_THRESHOLD = 64 * 1024;
@@ -18,7 +18,7 @@ export function useEngineStats(args: {
   active: boolean;
 }): { stats: EngineStats | null; genuineFailure: boolean } {
   const { url, infoHash, fileIdx, active } = args;
-  const enabled = active && isBundledEngineUrl(url) && !!infoHash;
+  const enabled = active && (isBundledEngineUrl(url) || isLocalEngineUrl(url)) && !!infoHash;
   const [stats, setStats] = useState<EngineStats | null>(null);
   const [genuineFailure, setGenuineFailure] = useState(false);
   const prevRef = useRef<EngineStats | null>(null);
@@ -38,18 +38,20 @@ export function useEngineStats(args: {
     startedAtRef.current = Date.now();
     downStrikesRef.current = 0;
     if (!enabled || infoHash == null) return;
-    const idx = fileIdx == null || fileIdx < 0 ? 0 : fileIdx;
+    const idx = fileIdx == null || fileIdx < 0 ? -1 : fileIdx;
     const ac = new AbortController();
     let cancelled = false;
 
     const tick = async () => {
-      const res = await fetchEngineStats(infoHash, idx, prevRef.current, ac.signal);
+      const res = await fetchEngineStats(infoHash, idx, prevRef.current, ac.signal, url);
       if (cancelled) return;
       const now = Date.now();
 
       if (res.kind === "down") {
         downStrikesRef.current += 1;
-        if (downStrikesRef.current >= ENGINE_DOWN_STRIKES) setGenuineFailure(true);
+        if (downStrikesRef.current >= ENGINE_DOWN_STRIKES && !prevRef.current?.sawData) {
+          setGenuineFailure(true);
+        }
         return;
       }
       downStrikesRef.current = 0;

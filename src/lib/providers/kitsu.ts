@@ -1,6 +1,7 @@
 import { lruSet } from "@/lib/cache";
 import type { Meta } from "@/lib/cinemeta";
 import { registerEvictable } from "@/lib/maintenance";
+import { adultContentHidden } from "@/lib/addons-store/adult-filter";
 
 const KITSU = "https://kitsu.io/api/edge";
 
@@ -245,7 +246,8 @@ export async function kitsuSimilarByGenres(
 ): Promise<Meta[]> {
   if (genreSlugs.length === 0) return [];
   const slug = genreSlugs.slice(0, 4).join(",");
-  const params = `filter[genres]=${encodeURIComponent(slug)}&filter[ageRating]=G,PG,R&sort=-userCount&page[limit]=${limit + 6}`;
+  const ageFilter = adultContentHidden() ? "&filter[ageRating]=G,PG,R" : "";
+  const params = `filter[genres]=${encodeURIComponent(slug)}${ageFilter}&sort=-userCount&page[limit]=${limit + 6}`;
   const j = await get<Doc<Resource<KitsuAnimeAttrs>[]>>(`/anime?${params}`);
   if (!j?.data) return [];
   const out: Meta[] = [];

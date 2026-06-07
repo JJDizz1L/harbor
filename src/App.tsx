@@ -79,6 +79,7 @@ const importSettings = () => import("@/views/settings");
 const importShows = () => import("@/views/shows");
 const importLibrary = () => import("@/views/library");
 const importLive = () => import("@/views/live");
+const importDownloads = () => import("@/views/downloads");
 const importOnboarding = () => import("@/components/onboarding");
 
 const AnimeView = lazy(() => importAnime().then((m) => ({ default: m.AnimeView })));
@@ -99,6 +100,7 @@ const Settings = lazy(() => importSettings().then((m) => ({ default: m.Settings 
 const Shows = lazy(() => importShows().then((m) => ({ default: m.Shows })));
 const LibraryView = lazy(() => importLibrary().then((m) => ({ default: m.LibraryView })));
 const LiveView = lazy(() => importLive().then((m) => ({ default: m.LiveView })));
+const DownloadsView = lazy(() => importDownloads().then((m) => ({ default: m.DownloadsView })));
 const OnboardingModal = lazy(() => importOnboarding().then((m) => ({ default: m.OnboardingModal })));
 
 function useViewPreloader() {
@@ -414,6 +416,7 @@ function Shell() {
   const showsTop = topKind === "shows";
   const libraryTop = topKind === "library";
   const liveTop = topKind === "live";
+  const downloadsTop = topKind === "downloads";
 
   const [immersive, setImmersive] = useState(false);
   useEffect(() => {
@@ -457,6 +460,7 @@ function Shell() {
   const showsAlive = useIdleEvict(showsTop);
   const libraryAlive = useIdleEvict(libraryTop);
   const liveAlive = useIdleEvict(liveTop);
+  const downloadsAlive = useIdleEvict(downloadsTop);
 
   return (
     <div className="relative flex h-full">
@@ -540,6 +544,13 @@ function Shell() {
             </Suspense>
           </div>
         )}
+        {downloadsAlive && (
+          <div className={layer(downloadsTop)}>
+            <Suspense fallback={null}>
+              <DownloadsView />
+            </Suspense>
+          </div>
+        )}
         {queueAlive && (
           <div className={layer(queueTop)}>
             <Suspense fallback={null}>
@@ -593,11 +604,12 @@ function Shell() {
           <div className={layer(pickerTop)}>
             <Suspense fallback={null}>
               <PlayPicker
-                key={`picker-${picker.meta.id}-${picker.episode?.season ?? ""}-${picker.episode?.episode ?? ""}-${picker.attempt ?? 0}`}
+                key={`picker-${picker.meta.id}-${picker.episode?.season ?? ""}-${picker.episode?.episode ?? ""}-${picker.attempt ?? 0}-${picker.intent ?? "play"}`}
                 meta={picker.meta}
                 episode={picker.episode}
-                autoPlay={picker.autoPlay}
+                autoPlay={picker.intent === "download" ? false : picker.autoPlay}
                 attempt={picker.attempt}
+                intent={picker.intent}
               />
             </Suspense>
           </div>

@@ -17,6 +17,8 @@ import { TvIcon } from "@/components/icons/tv-icon";
 import { ParentalPinModal } from "@/components/parental-pin-modal";
 import { useParental, type LockableTab } from "@/lib/parental";
 import { useView, type View } from "@/lib/view";
+import { Download } from "lucide-react";
+import { useActiveDownloadCount } from "@/lib/download/downloads-store";
 
 type NavDef = {
   render: (active: boolean) => ReactNode;
@@ -26,6 +28,20 @@ type NavDef = {
   parentalKey?: LockableTab;
   pinGated?: boolean;
 };
+
+function DownloadsNavIcon({ active }: { active: boolean }) {
+  const count = useActiveDownloadCount();
+  return (
+    <span className="relative inline-flex items-center justify-center">
+      <Download size={22} strokeWidth={active ? 2.4 : 2} />
+      {count > 0 && (
+        <span className="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-accent px-[3px] text-[9.5px] font-bold leading-none text-canvas tabular-nums">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
+    </span>
+  );
+}
 
 const PRIMARY: NavDef[] = [
   { render: (active) => <HomeIcon active={active} />, label: "Home", view: "home" },
@@ -39,6 +55,7 @@ const PRIMARY: NavDef[] = [
 const COLLECTIONS: NavDef[] = [
   { render: (active) => <CalendarIcon active={active} />, label: "Calendar", view: "calendar", parentalKey: "calendar" },
   { render: (active) => <LibraryIcon active={active} />, label: "My Library", view: "library", parentalKey: "library" },
+  { render: (active) => <DownloadsNavIcon active={active} />, label: "Downloads", view: "downloads" },
   { render: (active) => <AddonsIcon active={active} />, label: "Addons", view: "addons", parentalKey: "addons" },
   { render: (active) => <SettingsIcon active={active} />, label: "Settings", view: "settings", pinGated: true },
 ];

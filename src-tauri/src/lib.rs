@@ -23,6 +23,7 @@ mod airplay;
 mod stream_proxy;
 mod streams;
 mod thumbs;
+mod torrent_engine;
 mod trailer;
 mod transcode;
 mod webview_helpers;
@@ -277,6 +278,7 @@ pub fn run() {
                 }
             }
             cast_server::ensure_started_on_setup(&app.handle());
+            torrent_engine::ensure_started_on_setup(&app.handle());
             {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || discord_rp::run_loop(handle));
@@ -287,6 +289,7 @@ pub fn run() {
             if matches!(event, tauri::WindowEvent::Destroyed) && window.label() == "main" {
                 use tauri::Manager;
                 cast_server::stop();
+                torrent_engine::stop();
                 discord_rp::shutdown(window.app_handle());
             }
         })
@@ -370,6 +373,12 @@ pub fn run() {
             cast::cast_status,
             cast_server::cast_server_status,
             cast_server::cast_server_restart,
+            torrent_engine::torrent_engine_status,
+            torrent_engine::torrent_engine_add,
+            torrent_engine::torrent_engine_select,
+            torrent_engine::torrent_engine_stats,
+            torrent_engine::torrent_engine_remove,
+            torrent_engine::torrent_engine_selftest,
             transcode::cast_ffmpeg_present,
             streams::streams_run_pipeline,
             streams::streams_parse,

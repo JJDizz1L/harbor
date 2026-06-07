@@ -1,6 +1,6 @@
 [package]
 name = "harbor"
-version = "0.9.0"
+version = "0.9.1"
 description = "A Stremio client built for adventure"
 edition = "2021"
 
@@ -42,6 +42,7 @@ rust_cast = { path = "vendor/rust_cast", version = "0.20" }
 mdns-sd = "0.13"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 harbor-core = { path = "../harbor-core" }
+librqbit = { version = "=8.1.1", default-features = false, features = ["rust-tls"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_System_SystemInformation"] }

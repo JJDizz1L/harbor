@@ -1,5 +1,6 @@
 import type { Meta } from "@/lib/cinemeta";
 import { registerEvictable } from "@/lib/maintenance";
+import { adultContentHidden, isAdultText } from "@/lib/addons-store/adult-filter";
 
 const JIKAN = "https://api.jikan.moe/v4";
 const ARM = "https://relations.yuna.moe/api/ids";
@@ -145,8 +146,15 @@ function toMeta(a: JikanAnime, id: string): Meta {
   };
 }
 
+function isAdultJikan(a: JikanAnime): boolean {
+  if (a.rating?.startsWith("Rx")) return true;
+  if (a.genres?.some((g) => g.name === "Hentai" || g.name === "Erotica")) return true;
+  return isAdultText(a.title_english, a.title, a.title_japanese);
+}
+
 async function metasFromJikan(items: JikanAnime[]): Promise<Meta[]> {
   if (items.length === 0) return [];
+  if (adultContentHidden()) items = items.filter((a) => !isAdultJikan(a));
 
   const groups = new Map<string, JikanAnime[]>();
   for (const a of items) {
@@ -225,8 +233,9 @@ function throttledJikanFetch(url: string, signal: AbortSignal): Promise<Response
 }
 
 async function jikanQuery(path: string, params: Record<string, string | number> = {}): Promise<Meta[]> {
+  const effective = adultContentHidden() ? { sfw: "true", ...params } : params;
   const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) qs.set(k, String(v));
+  for (const [k, v] of Object.entries(effective)) qs.set(k, String(v));
   const key = `${path}?${qs.toString()}`;
 
   const hit = cache.get(key);
