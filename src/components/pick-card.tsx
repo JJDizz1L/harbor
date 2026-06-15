@@ -58,7 +58,7 @@ export const PickCard = memo(function PickCard({
     const seen = new Set<string>();
     const out: string[] = [];
     for (const u of [
-      rpdbPoster(settings.rpdbKey, meta.id, meta.poster),
+      rpdbPoster(settings.rpdbKey, settings.posterBaseUrl, imdbId ?? meta.id, meta.poster),
       meta.poster,
       hydratedPoster,
     ]) {
@@ -67,11 +67,14 @@ export const PickCard = memo(function PickCard({
       out.push(u);
     }
     return out;
-  }, [settings.rpdbKey, meta.id, meta.poster, hydratedPoster]);
+  }, [settings.rpdbKey, settings.posterBaseUrl, meta.id, imdbId, meta.poster, hydratedPoster]);
   const posterSrc = posterCandidates[imgIdx];
 
   useEffect(() => {
     setImgIdx(0);
+  }, [posterCandidates]);
+
+  useEffect(() => {
     setHydratedPoster(undefined);
   }, [meta.id]);
 

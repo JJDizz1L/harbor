@@ -35,6 +35,7 @@ export const LEAGUES: LeagueDef[] = [
   { key: "LALIGA", label: "La Liga", tag: "ESP", path: "soccer/esp.1", logo: `${LL}/15.png` },
   { key: "SERIEA", label: "Serie A", tag: "ITA", path: "soccer/ita.1", logo: `${LL}/12.png` },
   { key: "BUNDESLIGA", label: "Bundesliga", tag: "GER", path: "soccer/ger.1", logo: `${LL}/10.png` },
+  { key: "ROSHN", label: "Saudi Pro League", tag: "KSA", path: "soccer/ksa.1", logo: `${LL}/2488.png` },
 ];
 const BY_KEY = new Map(LEAGUES.map((l) => [l.key, l] as const));
 export const DEFAULT_SPORTS_LEAGUES = ["NFL", "NBA", "MLB", "NHL", "EPL", "MLS"];

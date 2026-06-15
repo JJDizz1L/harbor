@@ -3,18 +3,18 @@ import { rpdbPoster } from "@/lib/providers/rpdb";
 
 type Ratio = "portrait" | "landscape" | "wide";
 
-export function usePosterChain(rpdbKey: string, metaId: string, metaPoster?: string) {
+export function usePosterChain(rpdbKey: string, posterBaseUrl: string, metaId: string, metaPoster?: string) {
   const candidates = useMemo(() => {
     const out: string[] = [];
     const seen = new Set<string>();
-    for (const u of [rpdbPoster(rpdbKey, metaId, metaPoster), metaPoster]) {
+    for (const u of [rpdbPoster(rpdbKey, posterBaseUrl, metaId, metaPoster), metaPoster]) {
       if (u && !seen.has(u)) {
         seen.add(u);
         out.push(u);
       }
     }
     return out;
-  }, [rpdbKey, metaId, metaPoster]);
+  }, [rpdbKey, posterBaseUrl, metaId, metaPoster]);
   const [idx, setIdx] = useState(0);
   useEffect(() => setIdx(0), [candidates]);
   return {

@@ -1,4 +1,4 @@
-import { Check, Play } from "lucide-react";
+import { CalendarClock, Check, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Poster } from "@/components/poster";
 import type { Meta } from "@/lib/cinemeta";
@@ -56,31 +56,40 @@ export function EpisodeRow({
     overview: ep.overview || undefined,
   };
 
+  const isUpcoming = isUpcomingEpisode(ep);
   return (
     <div
       data-ep={ep.episodeNumber}
       data-no-card-ring
       onContextMenu={(e) => onContextMenu?.(e, ep.seasonNumber, ep.episodeNumber, progress.watched)}
-      className="group flex gap-6 rounded-2xl px-4 py-5 transition-colors hover:bg-elevated/30"
+      className={`group flex gap-6 rounded-2xl px-4 py-5 transition-colors ${isUpcoming ? "opacity-75 hover:bg-elevated/30" : "hover:bg-elevated/30"}`}
     >
       <button
         onClick={() => openPicker(meta, playEpisode, { autoPlay: settings.instantPlay })}
         className="flex min-w-0 flex-1 gap-6 text-start"
       >
         <div className="relative w-[200px] shrink-0 overflow-hidden rounded-lg">
-          <div className={spoiler?.thumb ? SPOILER_THUMB_CLASS : undefined}>
-            <Poster
-              src={still}
-              seed={String(ep.id)}
-              ratio="landscape"
-              onError={() => setImgIdx((i) => i + 1)}
-            />
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
-              <Play size={18} fill="currentColor" />
+          {isUpcoming ? (
+            <div className="flex aspect-[16/9] w-full flex-col items-center justify-center bg-canvas/60 text-ink-subtle">
+              <CalendarClock size={28} strokeWidth={1.5} />
             </div>
-          </div>
+          ) : (
+            <div className={spoiler?.thumb ? SPOILER_THUMB_CLASS : undefined}>
+              <Poster
+                src={still}
+                seed={String(ep.id)}
+                ratio="landscape"
+                onError={() => setImgIdx((i) => i + 1)}
+              />
+            </div>
+          )}
+          {!isUpcoming && (
+            <div className="absolute inset-0 flex items-center justify-center bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
+                <Play size={18} fill="currentColor" />
+              </div>
+            </div>
+          )}
           <span className="absolute start-2 top-2 rounded-md bg-canvas/95 px-1.5 py-0.5 text-[11px] font-semibold text-ink">
             {ep.episodeNumber}
           </span>
@@ -108,7 +117,7 @@ export function EpisodeRow({
           <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-subtle">
             <span>
               {[
-                `S${ep.seasonNumber} E${ep.episodeNumber}`,
+                t("S{s} E{e}", { s: ep.seasonNumber, e: ep.episodeNumber }),
                 ep.runtime ? t("{n} min", { n: ep.runtime }) : null,
                 formatAirDate(ep.airDate) || null,
                 ep.voteAverage && ep.voteAverage > 0 ? `★ ${ep.voteAverage.toFixed(1)}` : null,

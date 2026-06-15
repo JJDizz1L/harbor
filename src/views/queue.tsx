@@ -299,6 +299,7 @@ function Strip({
               <Poster
                 src={rpdbPoster(
                   settings.rpdbKey,
+                  settings.posterBaseUrl,
                   item.meta.id,
                   item.meta.background ?? item.meta.poster,
                 )}

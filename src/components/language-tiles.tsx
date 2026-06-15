@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { Meta } from "@/lib/cinemeta";
-import { useT } from "@/lib/i18n";
 import { tmdbDiscover } from "@/lib/providers/tmdb";
 import { rpdbPoster } from "@/lib/providers/rpdb";
 import { useSettings } from "@/lib/settings";
@@ -32,9 +31,8 @@ const LANGS: Lang[] = [
 ];
 
 export function LanguageTiles() {
-  const t = useT();
   return (
-    <Row title={t("Browse by Language")} min={210} shape="tile" alwaysActive>
+    <Row title="Browse by Language" min={210} shape="tile" alwaysActive>
       {LANGS.map((l) => (
         <LanguageTile key={l.iso} lang={l} />
       ))}
@@ -76,7 +74,7 @@ function LanguageTile({ lang }: { lang: Lang }) {
       className="group relative aspect-[5/4] w-full cursor-pointer overflow-hidden rounded-2xl border border-edge-soft text-start transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0.24,1)] hover:-translate-y-1"
       style={{ background: `linear-gradient(150deg, ${from}, ${to})` }}
     >
-      <Collage backdrops={backdrops} rpdbKey={settings.rpdbKey} />
+      <Collage backdrops={backdrops} rpdbKey={settings.rpdbKey} posterBaseUrl={settings.posterBaseUrl} />
       <div
         aria-hidden
         className="absolute inset-0"
@@ -116,7 +114,7 @@ function LanguageTile({ lang }: { lang: Lang }) {
   );
 }
 
-function Collage({ backdrops, rpdbKey }: { backdrops: Meta[]; rpdbKey: string }) {
+function Collage({ backdrops, rpdbKey, posterBaseUrl }: { backdrops: Meta[]; rpdbKey: string; posterBaseUrl: string }) {
   if (backdrops.length === 0) return null;
   return (
     <div className="absolute inset-0 grid grid-cols-3">
@@ -127,7 +125,7 @@ function Collage({ backdrops, rpdbKey }: { backdrops: Meta[]; rpdbKey: string })
           style={{ transform: `skewX(-8deg) translateX(${(i - 1) * 6}px)` }}
         >
           <Poster
-            src={rpdbPoster(rpdbKey, m.id, m.background ?? m.poster)}
+            src={rpdbPoster(rpdbKey, posterBaseUrl, m.id, m.background ?? m.poster)}
             seed={m.id}
             ratio="landscape"
             className="absolute inset-0 rounded-none [transform:skewX(8deg)_scale(1.4)]"

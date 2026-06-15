@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { applyTheme } from "@/lib/theme";
 import { loadBgImage, saveBgImage } from "@/lib/theme-storage";
 import { setTmdbLanguage } from "@/lib/providers/tmdb/tmdb-client";
-import { setPosterBaseUrl } from "@/lib/providers/rpdb";
+
 import { setMdblistBatchKey } from "@/lib/providers/mdblist-batch";
 import { setUiLanguage } from "@/lib/i18n";
 import { STORAGE_KEY } from "./settings/defaults";
@@ -26,10 +26,13 @@ type SettingsValue = {
 const Ctx = createContext<SettingsValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(loadStoredSettings);
+  const [settings, setSettings] = useState<Settings>(() => {
+    const s = loadStoredSettings();
+    setUiLanguage(s.uiLanguage);
+    return s;
+  });
 
   setTmdbLanguage(settings.tmdbLanguage);
-  setUiLanguage(settings.uiLanguage);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,9 +94,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, [settings.serveWebUi]);
 
-  useEffect(() => {
-    setPosterBaseUrl(settings.posterBaseUrl);
-  }, [settings.posterBaseUrl]);
+
 
   useEffect(() => {
     setMdblistBatchKey(settings.mdblistKey);
