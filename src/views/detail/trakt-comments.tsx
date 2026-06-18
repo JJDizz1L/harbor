@@ -427,15 +427,15 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
 
   const handleOpenTrakt = useCallback(() => {
     if (!target) return;
-    const id = target.kind === "episode" ? target.show.ids : target.ids;
-    const provider = id.tmdb ? "tmdb" : "imdb";
-    const val = provider === "tmdb" ? String(id.tmdb) : id.imdb;
+    const ids = target.kind === "episode" ? target.show.ids : target.ids;
+    const slug = ids.tmdb ? `tmdb:${ids.tmdb}` : ids.imdb;
+    if (!slug) return;
     if (target.kind === "episode") {
-      openUrl(`https://trakt.tv/search/${provider}/${val}?season=${target.season}&episode=${target.number}`);
+      openUrl(`https://app.trakt.tv/shows/${slug}/seasons/${target.season}/episodes/${target.number}?mode=media`);
     } else if (target.kind === "movie") {
-      openUrl(`https://trakt.tv/search/${provider}/${val}`);
+      openUrl(`https://app.trakt.tv/movies/${slug}?mode=media`);
     } else {
-      openUrl(`https://trakt.tv/search/${provider}/${val}`);
+      openUrl(`https://app.trakt.tv/shows/${slug}?mode=media`);
     }
   }, [target]);
 
