@@ -139,14 +139,30 @@ export function ratingPath(target: TraktTarget): string {
   return `/shows/${id}/rating`;
 }
 
+function syncIds(target: TraktTarget): { tmdb?: number } | null {
+  if (target.kind === "episode") {
+    const epIds = (target as { ids?: TraktIds }).ids;
+    return epIds?.tmdb ? { tmdb: epIds.tmdb } : null;
+  }
+  return target.ids?.tmdb ? { tmdb: target.ids.tmdb } : null;
+}
+
+function syncType(target: TraktTarget): string {
+  return target.kind === "episode" ? "episodes" : target.kind === "movie" ? "movies" : "shows";
+}
+
 export async function rateContent(target: TraktTarget, rating: number): Promise<void> {
-  const path = ratingPath(target);
-  await traktRequest(path, { method: "POST", authed: true, body: { rating } });
+  const ids = syncIds(target);
+  if (!ids) throw new Error("No TMDB ID available for rating");
+  const body = { [syncType(target)]: [{ rating, ids }] };
+  await traktRequest("/sync/ratings", { method: "POST", authed: true, body });
 }
 
 export async function removeRating(target: TraktTarget): Promise<void> {
-  const path = ratingPath(target);
-  await traktRequest(path, { method: "DELETE", authed: true });
+  const ids = syncIds(target);
+  if (!ids) throw new Error("No TMDB ID available for rating");
+  const body = { [syncType(target)]: [{ ids }] };
+  await traktRequest("/sync/ratings/remove", { method: "POST", authed: true, body });
 }
 
 export async function getUserRating(target: TraktTarget): Promise<number | null> {
