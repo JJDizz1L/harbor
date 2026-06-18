@@ -118,9 +118,7 @@ export function EpisodeDetailView({
 
   const seriesRating = omdbScores?.imdbRating ?? (imdbId ? seriesMeta?.imdbRating : undefined) ?? undefined;
 
-  const traktResolution = settings.traktAccessToken
-    ? stremioIdToTraktTarget(seriesId, { season, episode })
-    : null;
+  const traktResolution = stremioIdToTraktTarget(seriesId, { season, episode });
 
   const handlePlay = useCallback(() => {
     if (!seriesMeta || !episodeData) return;

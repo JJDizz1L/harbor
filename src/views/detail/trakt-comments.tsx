@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Heart, MessageCircle, ChevronDown, ExternalLink } from "lucide-react";
 import { useT } from "@/lib/i18n";
-import { getSession } from "@/lib/trakt/session";
 import { fetchComments, type TraktComment } from "@/lib/trakt/comments";
 import type { IdResolution } from "@/lib/trakt/ids";
 import { openUrl } from "@/lib/window";
@@ -89,11 +88,6 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
 
   useEffect(() => {
     if (!target) {
-      setLoading(false);
-      return;
-    }
-    const session = getSession();
-    if (!session) {
       setLoading(false);
       return;
     }
