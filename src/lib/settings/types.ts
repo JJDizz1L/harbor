@@ -29,7 +29,6 @@ export type WebhookTrigger =
 export type ContentCategory = "anime" | "liveTv" | "sports" | "adult";
 
 export type ContentFilters = Record<ContentCategory, boolean>;
-
 export type LetterboxdSettings = {
   enabled: boolean;
   mode: "public" | "full";
@@ -109,6 +108,7 @@ export type Settings = {
   playerTitleSeriesFirst: boolean;
   uiScale: number;
   serveWebUi: boolean;
+  remoteControlEnabled: boolean;
   trailerQuality: "auto" | "360p" | "720p" | "1080p" | "best";
   detailTrailerAutoplay: boolean;
   detailTrailerAudio: boolean;

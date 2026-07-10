@@ -65,6 +65,7 @@ import { TopRankModalProvider } from "@/lib/top-rank-modal";
 import { OnboardingProvider } from "@/lib/onboarding";
 import { RankingsProvider } from "@/lib/rankings";
 import { SettingsProvider } from "@/lib/settings";
+import { RemoteHostMount } from "@/lib/remote/host-mount";
 import { SearchProvider, useSearch } from "@/lib/search-context";
 import { SearchOverlay } from "@/components/search/search-overlay";
 import { SearchHotkey } from "@/components/search/search-hotkey";
@@ -257,6 +258,7 @@ export function App() {
                 <ContextMenuProvider>
                   <TopRankModalProvider>
                     <HarborErrorBoundary>
+                      <RemoteHostMount />
                       <ProfileIdentitySync />
                       <SettingsProfileBridge />
                       <TrackerProfileBridge />

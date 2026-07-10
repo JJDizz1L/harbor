@@ -68,6 +68,7 @@ export const DEFAULT: Settings = {
   playerTitleSeriesFirst: false,
   uiScale: 1,
   serveWebUi: false,
+  remoteControlEnabled: false,
   trailerQuality: "auto",
   detailTrailerAutoplay: false,
   detailTrailerAudio: false,

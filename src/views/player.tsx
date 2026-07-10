@@ -54,6 +54,7 @@ import { useAutoEndExit } from "./player/hooks/use-auto-end-exit";
 import { useQueueAdvance } from "./player/hooks/use-queue-advance";
 import { usePipMode } from "./player/hooks/use-pip-mode";
 import { usePlaybackControls } from "./player/hooks/use-playback-controls";
+import { useRemotePlaybackBinding } from "@/lib/remote/use-remote-playback-binding";
 import { usePlaybackPresence } from "./player/hooks/use-playback-presence";
 import { usePlayerExit } from "./player/hooks/use-player-exit";
 import { usePendingSeekApply } from "./player/hooks/use-pending-seek-apply";
@@ -249,6 +250,29 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
   });
 
   const canChangeEpisode = src.meta.type === "series" && (!inRoom || isHost);
+  const adjacentRef = useRef(adjacent);
+  adjacentRef.current = adjacent;
+  const onPrevEpisode = useCallback(() => goToEpisode(adjacentRef.current.prev), [goToEpisode]);
+  const onNextEpisode = useCallback(() => goToEpisode(adjacentRef.current.next), [goToEpisode]);
+  useRemotePlaybackBinding({
+    bridgeRef,
+    bridgeReady,
+    snap,
+    src,
+    castDevice: cast.castDevice,
+    castPlaying: cast.castPlaying,
+    castPositionSec: cast.castPositionSec,
+    playCast: cast.playCast,
+    pauseCast: cast.pauseCast,
+    seekCast: cast.seekCast,
+    stopCast: cast.stopCast,
+    onPickDevice: cast.onPickDevice,
+    onPrevEpisode,
+    onNextEpisode,
+    hasPrevEpisode: canChangeEpisode && !!adjacent.prev,
+    hasNextEpisode: canChangeEpisode && !!adjacent.next,
+  });
+
   const roomGuest = inRoom && !isHost;
   const broadcastEpisode = useCallback(
     (ep: PlayEpisode) => {

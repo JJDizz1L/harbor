@@ -169,11 +169,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return;
+    const shouldServe = settings.serveWebUi || settings.remoteControlEnabled;
     void import("@tauri-apps/api/core").then(({ invoke }) => {
-      if (settings.serveWebUi) invoke("web_serve_start").catch(() => {});
+      if (shouldServe) invoke("web_serve_start").catch(() => {});
       else invoke("web_serve_stop").catch(() => {});
     });
-  }, [settings.serveWebUi]);
+  }, [settings.serveWebUi, settings.remoteControlEnabled]);
 
   useEffect(() => {
     setPosterBaseUrl(settings.posterBaseUrl);
