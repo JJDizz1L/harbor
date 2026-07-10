@@ -311,7 +311,7 @@ export function useKeyboardNavigation(options: TVNavigationOptions = {}) {
       }
     };
 
-    // Phone remote Menu/Back calls these imperatively (synthetic Esc is ignored).
+    // Phone remote Back calls these imperatively (synthetic Esc is ignored).
     remoteBackFns = {
       onBack: () => {
         if (closeTopFocusScope()) return true;

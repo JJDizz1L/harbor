@@ -426,7 +426,7 @@ function parseDeepLinkEpisode(videoId?: string): { season: number; episode: numb
 }
 
 function Shell() {
-  const { topKind, service, meta, metaLiveContext, metaEpisodeHint, episodeDetail, personId, collectionId, filter, grid, awardType, animeAwardSource, picker, player, setView, canGoBack, goBack, canGoForward, goForward, openMeta, openPlayer, stackKinds, chromeHidden } = useView();
+  const { topKind, service, meta, metaLiveContext, metaEpisodeHint, episodeDetail, personId, collectionId, filter, grid, awardType, animeAwardSource, picker, player, setView, canGoBack, goBack, canGoForward, goForward, openMeta, openPlayer, exitPlayback, stackKinds, chromeHidden } = useView();
   const { settings, update } = useSettings();
   const { setOpen: setSearchOpen, open: searchOpen } = useSearch();
   const uiScaleRef = useRef(settings.uiScale);
@@ -451,6 +451,19 @@ function Shell() {
     onBack: () => {
       if (searchOpen) {
         setSearchOpen(false);
+        return true;
+      }
+      // Player/picker stacks can be nested (next episode pushes picker+player).
+      // Always leave playback entirely — never step back to a prior episode or
+      // re-enter the loading picker for the current one.
+      if (topKind === "player") {
+        const localBack = new Event("harbor:local-back", { cancelable: true });
+        if (!window.dispatchEvent(localBack)) return true;
+        exitPlayback();
+        return true;
+      }
+      if (topKind === "picker") {
+        exitPlayback();
         return true;
       }
       // Only claim Back when the view stack can actually pop — otherwise Esc
@@ -486,6 +499,11 @@ function Shell() {
           e.preventDefault();
           return;
         }
+        if (topKind === "player" || topKind === "picker") {
+          e.preventDefault();
+          exitPlayback();
+          return;
+        }
         if (canGoBack) {
           e.preventDefault();
           goBack();
@@ -497,7 +515,7 @@ function Shell() {
     };
     window.addEventListener("mousedown", onMouseDown, true);
     return () => window.removeEventListener("mousedown", onMouseDown, true);
-  }, [canGoBack, goBack, canGoForward, goForward]);
+  }, [canGoBack, goBack, canGoForward, goForward, topKind, exitPlayback]);
 
   useEffect(() => {
     uiScaleRef.current = settings.uiScale;
