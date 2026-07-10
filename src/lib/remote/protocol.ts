@@ -87,6 +87,8 @@ export type RemoteCommand =
   | { action: "submitText"; value?: string }
   /** Blur the focused host text field (phone dismissed the typing UI). */
   | { action: "blurText" }
+  /** Open host search (same as the "/" hotkey). */
+  | { action: "openSearch" }
   | { action: "ping" };
 
 export type RemoteServerMessage =

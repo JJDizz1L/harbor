@@ -425,6 +425,11 @@ export async function dispatchRemoteCommand(command: RemoteCommand): Promise<voi
       el?.blur();
       return;
     }
+    case "openSearch": {
+      if (typeof window === "undefined") return;
+      window.dispatchEvent(new Event("harbor:open-search"));
+      return;
+    }
     case "toggleSubtitles": {
       // Simple remote-friendly toggle: on uses the first available subtitle track,
       // off clears subtitles. Local player only.

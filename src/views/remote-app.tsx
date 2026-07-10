@@ -10,6 +10,7 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Search,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -420,6 +421,7 @@ function RemoteBody({
   onNextEpisode,
   onBack,
   onOpenRenderers,
+  onOpenSearch,
   onNav,
   onSetText,
   onSubmitText,
@@ -434,6 +436,7 @@ function RemoteBody({
   onNextEpisode: () => void;
   onBack: () => void;
   onOpenRenderers: () => void;
+  onOpenSearch: () => void;
   onNav: (key: RemoteNavKey) => void;
   onSetText: (value: string) => void;
   onSubmitText: (value: string) => void;
@@ -573,17 +576,23 @@ function RemoteBody({
           <ChevronDown size={16} strokeWidth={1.8} className="shrink-0 text-ink-muted" />
         </button>
 
-        <CircleBtn
-          label={snapshot.muted ? "Unmute" : "Mute"}
-          onClick={onMute}
-          size="sm"
-        >
-          {snapshot.muted || snapshot.volume === 0 ? (
-            <VolumeX size={18} strokeWidth={1.7} />
-          ) : (
-            <Volume2 size={18} strokeWidth={1.7} />
-          )}
-        </CircleBtn>
+        {browsing ? (
+          <CircleBtn label="Search on display" onClick={onOpenSearch} size="sm">
+            <Search size={18} strokeWidth={1.7} />
+          </CircleBtn>
+        ) : (
+          <CircleBtn
+            label={snapshot.muted ? "Unmute" : "Mute"}
+            onClick={onMute}
+            size="sm"
+          >
+            {snapshot.muted || snapshot.volume === 0 ? (
+              <VolumeX size={18} strokeWidth={1.7} />
+            ) : (
+              <Volume2 size={18} strokeWidth={1.7} />
+            )}
+          </CircleBtn>
+        )}
       </div>
 
 
@@ -804,6 +813,7 @@ export function RemoteApp() {
                 sendCommand({ action: "castDiscover" });
                 setSheetOpen(true);
               }}
+              onOpenSearch={() => sendCommand({ action: "openSearch" })}
               onToggle={() => sendCommand({ action: snapshot.playing ? "pause" : "play" })}
               onSeekBy={(delta) =>
                 sendCommand({
