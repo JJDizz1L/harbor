@@ -30,6 +30,12 @@ export type RemoteSourceInfo = {
   releaseGroup: string | null;
 };
 
+/** Host has a text field focused — phone should offer typing. */
+export type RemoteTextEntry = {
+  value: string;
+  placeholder: string;
+};
+
 export type RemoteSnapshot = {
   proto: number;
   idle: boolean;
@@ -52,6 +58,8 @@ export type RemoteSnapshot = {
   subtitlesOn: boolean;
   /** Local player has ≥1 subtitle track and isn't casting. */
   canToggleSubtitles: boolean;
+  /** Non-null when the host focus is in a text field. */
+  textEntry: RemoteTextEntry | null;
   updatedAt: number;
 };
 
@@ -73,6 +81,12 @@ export type RemoteCommand =
   | { action: "toggleSubtitles" }
   /** Drive host keyboard/TV focus navigation (swipe/tap on touchpad / now-playing poster). */
   | { action: "nav"; key: RemoteNavKey }
+  /** Replace value of the focused host text field. */
+  | { action: "setText"; value: string }
+  /** Submit the focused host text field (Enter). Optional value flushes text first. */
+  | { action: "submitText"; value?: string }
+  /** Blur the focused host text field (phone dismissed the typing UI). */
+  | { action: "blurText" }
   | { action: "ping" };
 
 export type RemoteServerMessage =
@@ -106,6 +120,7 @@ export function idleSnapshot(partial?: Partial<RemoteSnapshot>): RemoteSnapshot 
     hasNextEpisode: false,
     subtitlesOn: false,
     canToggleSubtitles: false,
+    textEntry: null,
     updatedAt: Date.now(),
     ...partial,
   };

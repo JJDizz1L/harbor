@@ -13,14 +13,14 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { CastIcon } from "@/components/player/cast-icon";
 import { HarborLoader } from "@/components/harbor-loader";
 import { HarborMark } from "@/components/icons/harbor-mark";
 import type { CastDeviceInfo } from "@/lib/cast";
 import { useKeyboardNavigation } from "@/lib/use-keyboard-navigation";
 import { useRemoteClient } from "@/lib/remote/use-remote-client";
-import type { RemoteCastDevice, RemoteNavKey, RemoteSnapshot } from "@/lib/remote/protocol";
+import type { RemoteCastDevice, RemoteNavKey, RemoteSnapshot, RemoteTextEntry } from "@/lib/remote/protocol";
 
 function toCastDevice(d: RemoteCastDevice): CastDeviceInfo {
   return {
@@ -38,9 +38,23 @@ function toCastDevice(d: RemoteCastDevice): CastDeviceInfo {
 function sourceLine(snapshot: RemoteSnapshot): string | null {
   const src = snapshot.source;
   if (!src) return null;
-  const bits = [src.resolution, src.quality, src.releaseGroup].filter(Boolean);
+  // `quality` already includes resolution (see formatStreamQuality) — don't repeat it.
+  const bits: string[] = [];
+  if (src.quality) bits.push(src.quality);
+  else if (src.resolution) bits.push(src.resolution);
+  if (src.releaseGroup) bits.push(src.releaseGroup);
   if (bits.length) return bits.join(" · ");
-  return src.label;
+
+  const label = src.label?.trim();
+  if (!label) return null;
+  const title = snapshot.mediaTitle?.trim();
+  if (!title) return label;
+  if (label.toLowerCase() === title.toLowerCase()) return null;
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const nt = norm(title);
+  const nl = norm(label);
+  if (nt && nl && (nl.startsWith(nt) || nt.startsWith(nl))) return null;
+  return label;
 }
 
 function CircleBtn({
@@ -113,7 +127,7 @@ function SeekTen({
 const SWIPE_STEP_PX = 56;
 const TAP_SLOP_PX = 16;
 /** Wait before leaving Now Playing so brief idle flashes (episode hop / sticky) don't thrash the UI. */
-const LEAVE_NOW_PLAYING_MS = 450;
+const LEAVE_NOW_PLAYING_MS = 120;
 
 type RemoteSurfaceMode = "browse" | "nowPlaying";
 
@@ -216,6 +230,99 @@ function TouchpadSurface({
   );
 }
 
+/** Full-screen text entry when the host has a text field focused. */
+function FullscreenTextEntry({
+  entry,
+  inputRef,
+  onChange,
+  onSubmit,
+  onDismiss,
+}: {
+  entry: RemoteTextEntry;
+  inputRef: RefObject<HTMLTextAreaElement | null>;
+  onChange: (value: string) => void;
+  /** Flush value + submit on the host, then dismiss. */
+  onSubmit: (value: string) => void;
+  /** Close the overlay without submitting (does not send host Back). */
+  onDismiss: () => void;
+}) {
+  const [value, setValue] = useState(entry.value);
+  const focusedRef = useRef(false);
+  const didAutofocus = useRef(false);
+
+  useEffect(() => {
+    if (focusedRef.current) return;
+    setValue(entry.value);
+  }, [entry.value]);
+
+  // Autofocus once when the overlay opens — don't re-run or buttons can't be tapped.
+  useEffect(() => {
+    if (didAutofocus.current) return;
+    didAutofocus.current = true;
+    const id = window.requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [inputRef]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-canvas pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+      data-remote-text-entry
+    >
+      <div className="flex shrink-0 items-center justify-between gap-3 px-4">
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="flex h-11 items-center gap-1.5 rounded-full bg-white/[0.08] px-4 text-[15px] font-semibold text-ink shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] active:bg-white/[0.14]"
+        >
+          <ChevronLeft size={18} strokeWidth={1.8} />
+          Done
+        </button>
+        <button
+          type="button"
+          onClick={() => onSubmit(value)}
+          className="flex h-11 items-center rounded-full bg-white/[0.12] px-5 text-[15px] font-semibold text-ink shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] active:bg-white/[0.18]"
+        >
+          Go
+        </button>
+      </div>
+
+      <textarea
+        ref={inputRef}
+        value={value}
+        placeholder={entry.placeholder || "Search…"}
+        inputMode="search"
+        enterKeyHint="search"
+        autoCapitalize="off"
+        autoCorrect="off"
+        autoComplete="off"
+        spellCheck={false}
+        rows={1}
+        aria-label="Type into the focused field on the display"
+        onFocus={() => {
+          focusedRef.current = true;
+        }}
+        onBlur={() => {
+          focusedRef.current = false;
+        }}
+        onChange={(e) => {
+          const next = e.target.value;
+          setValue(next);
+          onChange(next);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onSubmit(value);
+          }
+        }}
+        className="min-h-0 w-full flex-1 resize-none bg-transparent px-5 py-6 font-display text-[clamp(1.75rem,7vw,2.5rem)] leading-tight tracking-tight text-ink placeholder:text-ink-muted focus:outline-none"
+      />
+    </div>
+  );
+}
+
 function RendererSheet({
   snapshot,
   open,
@@ -314,6 +421,9 @@ function RemoteBody({
   onBack,
   onOpenRenderers,
   onNav,
+  onSetText,
+  onSubmitText,
+  onBlurText,
 }: {
   snapshot: RemoteSnapshot;
   onToggle: () => void;
@@ -325,6 +435,9 @@ function RemoteBody({
   onBack: () => void;
   onOpenRenderers: () => void;
   onNav: (key: RemoteNavKey) => void;
+  onSetText: (value: string) => void;
+  onSubmitText: (value: string) => void;
+  onBlurText: () => void;
 }) {
   const mode = useRemoteSurfaceMode(snapshot.idle);
   const browsing = mode === "browse";
@@ -332,11 +445,20 @@ function RemoteBody({
   if (!snapshot.idle) heldSnap.current = snapshot;
   // While leaving Now Playing, keep last media on screen until browse mode settles.
   const view = browsing || !snapshot.idle ? snapshot : heldSnap.current;
+  const textEntry = snapshot.textEntry;
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [typing, setTyping] = useState(false);
+  const [textDismissed, setTextDismissed] = useState(false);
+  const textEntryActive = !!textEntry;
+  const heldTextEntry = useRef(textEntry);
+  if (textEntry) heldTextEntry.current = textEntry;
+  const setTextTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const episodeLine = useMemo(() => {
     if (!view.episode) return null;
     const ep = `S${view.episode.season} · E${view.episode.episode}`;
-    return view.episode.name ? `${ep}  ${view.episode.name}` : ep;
+    const epName = view.episode.name?.trim();
+    return epName ? `${ep}  ${epName}` : ep;
   }, [view.episode]);
   const source = sourceLine(view);
   const activeCast = useMemo(() => {
@@ -348,15 +470,79 @@ function RemoteBody({
   const showEpisodeNav = !!view.episode;
 
   useEffect(() => {
-    if (browsing) return;
+    if (browsing || textEntryActive || typing) return;
     const play = document.querySelector<HTMLElement>(
       "[data-remote-transport] [data-tv-initial-focus]",
     );
     play?.focus({ preventScroll: true });
-  }, [browsing]);
+  }, [browsing, textEntryActive, typing]);
+
+  useEffect(() => {
+    return () => {
+      if (setTextTimer.current) clearTimeout(setTextTimer.current);
+    };
+  }, []);
+
+  // Open fullscreen when the host focuses a text field; reset dismiss when it leaves.
+  useEffect(() => {
+    if (textEntryActive) {
+      if (!textDismissed) setTyping(true);
+      return;
+    }
+    setTextDismissed(false);
+    // Media active → drop text UI immediately so Now Playing can show (e.g. Open from search).
+    if (!snapshot.idle) {
+      setTyping(false);
+      return;
+    }
+    // Idle: brief grace so focus moving between inputs doesn't flash the overlay away.
+    const t = window.setTimeout(() => setTyping(false), 100);
+    return () => window.clearTimeout(t);
+  }, [textEntryActive, textDismissed, snapshot.idle]);
+
+  const pushText = useCallback(
+    (value: string) => {
+      if (setTextTimer.current) clearTimeout(setTextTimer.current);
+      setTextTimer.current = setTimeout(() => onSetText(value), 40);
+    },
+    [onSetText],
+  );
+
+  const dismissTextEntry = useCallback(() => {
+    if (setTextTimer.current) clearTimeout(setTextTimer.current);
+    setTextDismissed(true);
+    setTyping(false);
+    textInputRef.current?.blur();
+    // Blur host field so textEntry clears; otherwise the overlay would stay open.
+    onBlurText();
+  }, [onBlurText]);
+
+  const submitTextEntry = useCallback(
+    (value: string) => {
+      if (setTextTimer.current) clearTimeout(setTextTimer.current);
+      onSubmitText(value);
+      setTextDismissed(true);
+      setTyping(false);
+      textInputRef.current?.blur();
+    },
+    [onSubmitText],
+  );
+
+  const showTextOverlay =
+    !textDismissed && (textEntryActive || typing) && !!heldTextEntry.current;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[clamp(0.75rem,2.2vh,1.25rem)] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]">
+      {showTextOverlay && heldTextEntry.current ? (
+        <FullscreenTextEntry
+          entry={heldTextEntry.current}
+          inputRef={textInputRef}
+          onChange={pushText}
+          onSubmit={submitTextEntry}
+          onDismiss={dismissTextEntry}
+        />
+      ) : null}
+
       {/* Top chrome: logo · device · mute */}
       <div className="flex items-center gap-2">
         <button
@@ -400,11 +586,6 @@ function RemoteBody({
         </CircleBtn>
       </div>
 
-      {browsing ? (
-        <p className="shrink-0 text-center text-[13px] text-ink-muted">
-          Browse Harbor on the display
-        </p>
-      ) : null}
 
       {/* One touchpad for both modes — poster is the surface while playing */}
       <TouchpadSurface
@@ -639,6 +820,9 @@ export function RemoteApp() {
               onPrevEpisode={() => sendCommand({ action: "prevEpisode" })}
               onNextEpisode={() => sendCommand({ action: "nextEpisode" })}
               onNav={(key) => sendCommand({ action: "nav", key })}
+              onSetText={(value) => sendCommand({ action: "setText", value })}
+              onSubmitText={(value) => sendCommand({ action: "submitText", value })}
+              onBlurText={() => sendCommand({ action: "blurText" })}
             />
           </div>
 

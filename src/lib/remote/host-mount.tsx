@@ -28,6 +28,8 @@ function pushSnapshot() {
   broadcast({ t: "snapshot", snapshot: buildRemoteSnapshot(getPlaybackPosition()) });
 }
 
+const SKIP_SNAPSHOT = new Set(["nav", "setText", "ping"]);
+
 /**
  * Host-side remote control plane. Mount only in the Tauri desktop shell.
  * Relays WS commands to the active player/cast binding and pushes snapshots.
@@ -61,6 +63,7 @@ export function RemoteHostMount() {
           try {
             if (msg.command.action === "castDiscover") {
               setRemoteCastDiscovering(true);
+              setRemoteCastDevices([]);
               try {
                 const devices = await discoverCastDevices();
                 setRemoteCastDevices(devices);
@@ -68,15 +71,15 @@ export function RemoteHostMount() {
                 setRemoteCastDiscovering(false);
               }
               pushSnapshot();
-            } else if (msg.command.action === "ping") {
-              broadcast({ t: "pong", at: Date.now() });
-            } else if (msg.command.action === "nav") {
-              // Nav is fire-and-forget into host focus; skip snapshot churn.
-              await dispatchRemoteCommand(msg.command);
-            } else {
-              await dispatchRemoteCommand(msg.command);
-              pushSnapshot();
+              return;
             }
+            if (msg.command.action === "ping") {
+              broadcast({ t: "pong", at: Date.now() });
+              return;
+            }
+            await dispatchRemoteCommand(msg.command);
+            // nav/setText: focusin/out + 400ms tick cover textEntry; skip churn.
+            if (!SKIP_SNAPSHOT.has(msg.command.action)) pushSnapshot();
           } catch (err) {
             const message = err instanceof Error ? err.message : "remote command failed";
             broadcast({ t: "error", message });
@@ -105,6 +108,14 @@ export function RemoteHostMount() {
         // throttle via shared interval below
       }),
     );
+
+    const onFocusChange = () => pushSnapshot();
+    document.addEventListener("focusin", onFocusChange);
+    document.addEventListener("focusout", onFocusChange);
+    unsubs.push(() => {
+      document.removeEventListener("focusin", onFocusChange);
+      document.removeEventListener("focusout", onFocusChange);
+    });
 
     setRemoteCastDiscovering(true);
     void discoverCastDevices().then((devices) => {

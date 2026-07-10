@@ -11,7 +11,92 @@ import {
   type RemoteSnapshot,
   type RemoteSourceInfo,
   type RemoteTarget,
+  type RemoteTextEntry,
 } from "./protocol";
+
+const TEXT_INPUT_TYPES = new Set([
+  "text",
+  "search",
+  "email",
+  "url",
+  "tel",
+  "password",
+  "number",
+]);
+
+let textEntryEl: HTMLInputElement | HTMLTextAreaElement | null = null;
+
+function isTextEntryEl(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement {
+  if (el instanceof HTMLTextAreaElement) return !el.disabled && !el.readOnly;
+  if (el instanceof HTMLInputElement) {
+    if (el.disabled || el.readOnly) return false;
+    return TEXT_INPUT_TYPES.has((el.type || "text").toLowerCase());
+  }
+  return false;
+}
+
+/** Read the focused host text field for the phone keyboard UI. */
+export function readHostTextEntry(): RemoteTextEntry | null {
+  if (typeof document === "undefined") return null;
+  const el = document.activeElement;
+  if (isTextEntryEl(el)) {
+    textEntryEl = el;
+    return { value: el.value, placeholder: el.placeholder || "" };
+  }
+  return null;
+}
+
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  const desc = Object.getOwnPropertyDescriptor(proto, "value");
+  desc?.set?.call(el, value);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function resolveTextEntryEl(): HTMLInputElement | HTMLTextAreaElement | null {
+  const active = document.activeElement;
+  if (isTextEntryEl(active)) {
+    textEntryEl = active;
+    return active;
+  }
+  if (textEntryEl && document.contains(textEntryEl) && isTextEntryEl(textEntryEl)) {
+    return textEntryEl;
+  }
+  return null;
+}
+
+function applyTextToFocused(value: string) {
+  const el = resolveTextEntryEl();
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  setNativeValue(el, value);
+}
+
+function submitFocusedText() {
+  const el = resolveTextEntryEl();
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  const opts: KeyboardEventInit = {
+    key: "Enter",
+    code: "Enter",
+    keyCode: 13,
+    which: 13,
+    bubbles: true,
+    cancelable: true,
+  };
+  el.dispatchEvent(new KeyboardEvent("keydown", opts));
+  el.dispatchEvent(new KeyboardEvent("keyup", opts));
+  if (el.form) {
+    try {
+      el.form.requestSubmit();
+    } catch {
+      el.form.submit();
+    }
+  }
+}
 
 export type RemotePlaybackBinding = {
   bridge: PlayerBridge | null;
@@ -71,7 +156,10 @@ let stickyClearTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<Listener>();
 
 /** Keep last media briefly when PlayerView unmounts during episode switches. */
-const STICKY_CLEAR_MS = 2500;
+const STICKY_CLEAR_MS = 1200;
+
+/** Armed by next-episode / autoplay hops so unmount doesn't flash the remote idle. */
+let stickyHopArmed = false;
 
 function notify() {
   for (const l of listeners) l();
@@ -84,6 +172,17 @@ function clearStickyTimer() {
   }
 }
 
+/** Call before replacing the player with a picker (next episode, auto-retry, etc.). */
+export function armRemoteStickyHop(): void {
+  stickyHopArmed = true;
+}
+
+function clearStickyMedia() {
+  clearStickyTimer();
+  stickyHopArmed = false;
+  sticky = null;
+}
+
 function rememberStickyFromBinding(b: RemotePlaybackBinding) {
   if (!b.src) return;
   const casting = !!b.castDevice;
@@ -93,7 +192,7 @@ function rememberStickyFromBinding(b: RemotePlaybackBinding) {
     : status === "playing" || status === "loading" || status === "ready";
   sticky = {
     mediaId: b.src.meta.id,
-    mediaTitle: b.src.title || b.src.meta.name || null,
+    mediaTitle: remoteMediaTitle(b.src),
     posterUrl: b.src.meta.poster ?? b.src.meta.background ?? null,
     episode: episodeFromSrc(b.src),
     source: b.src.streamRef
@@ -126,18 +225,24 @@ export function registerRemotePlayback(next: RemotePlaybackBinding | null): void
   binding = next;
   if (next?.src) {
     clearStickyTimer();
+    stickyHopArmed = false;
     rememberStickyFromBinding(next);
   } else if (next === null) {
-    // Player unmounted (exit or temporary episode-picker hop). Keep sticky
-    // media for a short grace window so the phone remote doesn't flash idle.
     clearStickyTimer();
-    stickyClearTimer = setTimeout(() => {
-      stickyClearTimer = null;
-      if (!binding?.src) {
-        sticky = null;
-        notify();
-      }
-    }, STICKY_CLEAR_MS);
+    if (stickyHopArmed) {
+      // Episode hop / auto-retry: hold Now Playing briefly across the picker gap.
+      stickyHopArmed = false;
+      stickyClearTimer = setTimeout(() => {
+        stickyClearTimer = null;
+        if (!binding?.src) {
+          sticky = null;
+          notify();
+        }
+      }, STICKY_CLEAR_MS);
+    } else {
+      // Real exit — drop sticky immediately so the remote leaves Now Playing fast.
+      clearStickyMedia();
+    }
   }
   if (next?.castDevice) {
     preferredTarget = {
@@ -193,6 +298,12 @@ function episodeFromSrc(src: PlayerSrc | null): RemoteEpisodeRef | null {
   };
 }
 
+/** Show name for series; movie/stream title otherwise. */
+function remoteMediaTitle(src: PlayerSrc): string | null {
+  if (src.episode) return src.meta.name || src.title || null;
+  return src.title || src.meta.name || null;
+}
+
 function snapshotFromSticky(): RemoteSnapshot {
   const s = sticky!;
   return {
@@ -216,6 +327,7 @@ function snapshotFromSticky(): RemoteSnapshot {
     hasNextEpisode: s.hasNextEpisode,
     subtitlesOn: s.subtitlesOn,
     canToggleSubtitles: s.canToggleSubtitles,
+    textEntry: readHostTextEntry(),
     updatedAt: Date.now(),
   };
 }
@@ -230,6 +342,7 @@ export function buildRemoteSnapshot(positionSec?: number): RemoteSnapshot {
       castDiscovering,
       volume: b?.snap.volume ?? 1,
       muted: b?.snap.muted ?? false,
+      textEntry: readHostTextEntry(),
     });
   }
 
@@ -260,7 +373,7 @@ export function buildRemoteSnapshot(positionSec?: number): RemoteSnapshot {
     proto: REMOTE_PROTO,
     idle: false,
     mediaId: b.src.meta.id,
-    mediaTitle: b.src.title || b.src.meta.name || null,
+    mediaTitle: remoteMediaTitle(b.src),
     posterUrl: b.src.meta.poster ?? b.src.meta.background ?? null,
     episode: episodeFromSrc(b.src),
     source: b.src.streamRef
@@ -282,6 +395,7 @@ export function buildRemoteSnapshot(positionSec?: number): RemoteSnapshot {
     hasPrevEpisode: !!b.onPrevEpisode && !!b.hasPrevEpisode,
     hasNextEpisode: !!b.onNextEpisode && !!b.hasNextEpisode,
     ...subtitleFlags(b),
+    textEntry: readHostTextEntry(),
     updatedAt: Date.now(),
   };
 }
@@ -295,6 +409,20 @@ export async function dispatchRemoteCommand(command: RemoteCommand): Promise<voi
       return;
     case "nav": {
       injectHostNav(command.key);
+      return;
+    }
+    case "setText": {
+      applyTextToFocused(command.value);
+      return;
+    }
+    case "submitText": {
+      if (typeof command.value === "string") applyTextToFocused(command.value);
+      submitFocusedText();
+      return;
+    }
+    case "blurText": {
+      const el = resolveTextEntryEl();
+      el?.blur();
       return;
     }
     case "toggleSubtitles": {
