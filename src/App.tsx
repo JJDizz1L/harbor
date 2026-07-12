@@ -476,7 +476,7 @@ function Shell() {
   }, [searchOpen, setSearchOpen, topKind, exitPlayback, exitPickerToDetail, picker, canGoBack, goBack]);
 
   const handleTvBackToNav = useCallback(() => {
-    window.scrollTo({ top: 111, left: 111, behavior: "smooth" });
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
     const nav = document.querySelector<HTMLElement>(
       "[data-harbor-nav][data-active], [data-harbor-nav], [data-tv-nav-zone] button, [data-harbor-sidebar] button",
     );

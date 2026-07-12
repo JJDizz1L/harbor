@@ -16,6 +16,11 @@ use tokio::sync::{broadcast, oneshot, Mutex as AsyncMutex};
 pub const WEB_PORT: u16 = 11471;
 const DEV_FRONTEND: &str = "http://127.0.0.1:1420";
 
+/// True when built/run via `tauri dev` (CLI sets `--cfg dev`).
+fn is_tauri_dev() -> bool {
+    tauri::is_dev()
+}
+
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static NEXT_CLIENT_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -81,7 +86,7 @@ fn serve_bundled_asset(app: &AppHandle, raw_path: &str) -> Response<Body> {
 /// previously only served Tauri's asset resolver (often stale). Proxy those
 /// requests to the Vite dev server so phone `/remote` tracks HMR.
 async fn proxy_dev_frontend(path_and_query: &str) -> Option<Response<Body>> {
-    if !cfg!(dev) {
+    if !is_tauri_dev() {
         return None;
     }
     let url = format!("{DEV_FRONTEND}{path_and_query}");
@@ -222,7 +227,7 @@ pub async fn web_serve_start(app: AppHandle) -> Result<u16, String> {
         RUNNING.store(false, Ordering::SeqCst);
         *serve_state_slot().lock().unwrap() = None;
     });
-    if cfg!(dev) {
+    if is_tauri_dev() {
         eprintln!(
             "[web-serve] Harbor remote WS on 0.0.0.0:{} (UI proxied from {})",
             WEB_PORT, DEV_FRONTEND
