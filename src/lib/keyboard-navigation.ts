@@ -286,9 +286,7 @@ function ensureFocusStyles() {
 function focusElement(el: HTMLElement, scroll: "center" | "nearest" | "none" = "center") {
   ensureFocusStyles();
 
-  if (lastFocusedEl && lastFocusedEl !== el) {
-    lastFocusedEl.removeAttribute('data-tv-focused');
-  }
+  if (lastFocusedEl && lastFocusedEl !== el) clearTvFocusRing();
 
   el.setAttribute('data-tv-focused', 'true');
   lastFocusedEl = el;
@@ -308,6 +306,11 @@ function focusElement(el: HTMLElement, scroll: "center" | "nearest" | "none" = "
     inline: "nearest",
     behavior: "smooth",
   });
+}
+
+function clearTvFocusRing() {
+  lastFocusedEl?.removeAttribute('data-tv-focused');
+  lastFocusedEl = null;
 }
 
 function enterSearchEditMode(el: HTMLElement) {
@@ -538,6 +541,10 @@ export function useKeyboardNavigation(options: TVNavigationOptions = {}) {
   onBackToNavRef.current = onBackToNav;
   wrapRef.current = wrap;
   arrowsRef.current = arrows;
+
+  useEffect(() => {
+    if (!enabled) clearTvFocusRing();
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;
