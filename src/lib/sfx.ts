@@ -74,6 +74,8 @@ class SoundEffects {
     carrier.stop(t0 + dur); modulator.stop(t0 + dur);
   }
 
+
+
   navigate(dir: "up" | "down" | "left" | "right", soundType: 'light' | 'movie' = 'light') {
     if (this.activeTheme === 'none') return;
 
@@ -89,11 +91,25 @@ class SoundEffects {
       if (soundType === 'light') this.playGlass({ freq: 2000, dur: 0.08, vol: 0.012 });
       else this.playGlass({ freq: up ? 980 : 1120, dur: 0.22, vol: 0.03 });
     }
-    else if (this.activeTheme === 'retro') {
-      this.playTone(soundType === 'light' ? 600 : 440, 'square', 0.06, 0.012);
+    else if (this.activeTheme === "retro") {
+      this.playTone(880, "square", 0.018, 0.004);
+
+      setTimeout(() => {
+        this.playTone(1046, "square", 0.022, 0.0035);
+      }, 12);
+
+      return;
     }
-    else if (this.activeTheme === 'cinematic') {
-      this.playTone(soundType === 'light' ? 250 : 130, 'triangle', 0.2, 0.04);
+    else if (this.activeTheme === "cinematic") {
+
+      this.playTone(
+        200,
+        "sine",
+        0.12,
+        0.01
+      );
+
+      return;
     }
   }
 
@@ -106,10 +122,142 @@ class SoundEffects {
       this.playTone(659.25, 'sine', 0.3, 0.025);
       this.playTone(783.99, 'sine', 0.3, 0.02);
     }
-    else if (this.activeTheme === 'retro') this.playTone(880, 'square', 0.2, 0.02);
-    else if (this.activeTheme === 'cinematic') {
-      this.playTone(75, 'sine', 0.7, 0.08);
-      this.playTone(280, 'triangle', 0.5, 0.03);
+    if (this.activeTheme === "retro") {
+
+      this.playTone(
+        523,
+        "triangle",
+        0.06,
+        0.012
+      );
+      
+      
+      setTimeout(() => {
+        this.playTone(
+          659,
+          "triangle",
+          0.045,
+          0.01
+        );
+      }, 15);
+
+
+      return;
+    }
+    
+    
+    
+
+
+    
+    else if (this.activeTheme === "cinematic") {
+
+
+      const c = this.getCtx();
+
+      if (!c || !this.masterGain) return;
+
+
+      const t = c.currentTime;
+
+
+
+      const bass = c.createOscillator();
+
+      const bassGain = c.createGain();
+
+
+
+      bass.type = "sine";
+
+
+      bass.frequency.setValueAtTime(
+        100,
+        t
+      );
+
+
+      bass.frequency.exponentialRampToValueAtTime(
+        35,
+        t + 0.35
+      );
+
+
+
+      bassGain.gain.setValueAtTime(
+        0.0001,
+        t
+      );
+
+
+      bassGain.gain.exponentialRampToValueAtTime(
+        0.06,
+        t + 0.04
+      );
+
+
+      bassGain.gain.exponentialRampToValueAtTime(
+        0.001,
+        t + 1.2
+      );
+
+
+
+      bass
+        .connect(bassGain)
+        .connect(this.masterGain);
+
+
+
+      bass.start(t);
+      bass.stop(t + 1.3);
+
+
+
+
+      const shimmer = c.createOscillator();
+
+      const shimmerGain = c.createGain();
+
+
+
+      shimmer.type = "sine";
+
+
+      shimmer.frequency.value = 900;
+
+
+
+      shimmerGain.gain.setValueAtTime(
+        0.0001,
+        t
+      );
+
+
+      shimmerGain.gain.exponentialRampToValueAtTime(
+        0.012,
+        t + 0.05
+      );
+
+
+      shimmerGain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        t + 0.5
+      );
+
+
+
+      shimmer
+        .connect(shimmerGain)
+        .connect(this.masterGain);
+
+
+
+      shimmer.start(t);
+      shimmer.stop(t + 0.6);
+
+
+      return;
     }
   }
 
@@ -121,7 +269,30 @@ class SoundEffects {
       this.playTone(392.00, 'sine', 0.22, 0.03);
       this.playTone(329.63, 'sine', 0.22, 0.02);
     }
-    else if (this.activeTheme === 'retro') this.playTone(440, 'square', 0.18, 0.02);
+    if (this.activeTheme === "retro") {
+
+      this.playTone(
+        560,
+        "triangle",
+        0.05,
+        0.01,
+      );
+      
+      
+      setTimeout(() => {
+      
+        this.playTone(
+          430,
+          "triangle",
+          0.06,
+          0.008
+        );
+      
+      }, 35);
+
+
+      return;
+    }
     else if (this.activeTheme === 'cinematic') this.playTone(90, 'sine', 0.4, 0.05);
   }
 
@@ -130,7 +301,15 @@ class SoundEffects {
 
     if (this.activeTheme === 'glass') this.playGlass({ freq: 2200, dur: 0.05, vol: 0.015 });
     else if (this.activeTheme === 'modern') this.playTone(1200, 'sine', 0.015, 0.01);
-    else if (this.activeTheme === 'retro') this.playTone(1000, 'sawtooth', 0.02, 0.004);
+    else if (this.activeTheme === "retro") {
+      this.playTone(740, "square", 0.016, 0.0035);
+    
+      setTimeout(() => {
+        this.playTone(880, "triangle", 0.018, 0.003);
+      }, 10);
+    
+      return;
+    }
     else if (this.activeTheme === 'cinematic') this.playTone(350, 'sine', 0.04, 0.01);
   }
 
@@ -139,8 +318,25 @@ class SoundEffects {
 
     if (this.activeTheme === 'glass') this.playGlass({ freq: 1500, dur: 0.08, vol: 0.04 });
     else if (this.activeTheme === 'modern') this.playTone(400, 'sine', 0.05, 0.035);
-    else if (this.activeTheme === 'retro') this.playTone(550, 'square', 0.07, 0.015);
-    else if (this.activeTheme === 'cinematic') this.playTone(180, 'triangle', 0.12, 0.04);
+    if (this.activeTheme === "retro") {
+      this.playTone(520, "square", 0.022, 0.007);
+    
+      setTimeout(() => {
+        this.playTone(360, "triangle", 0.028, 0.005);
+      }, 12);
+    
+      return;
+    }
+    else if (this.activeTheme === "cinematic") {
+
+      this.playTone(
+        180,
+        "sine",
+        0.12,
+        0.02,
+      );
+
+    }
   }
 
   volumeChange(isUp: boolean) {
@@ -163,7 +359,7 @@ class SoundEffects {
   }
 
   init() {
-    if (this.activeTheme === 'none') return; // عدم تهيئة الصوت إذا كان معطلاً
+    if (this.activeTheme === 'none') return; 
     this.getCtx();
   }
 }
