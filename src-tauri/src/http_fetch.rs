@@ -10,9 +10,8 @@ const BROWSER_UA: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 
-/// Maximum concurrent HTTP fetch requests. This caps the number of DNS
-/// lookups that can happen simultaneously, preventing systemd-resolved
-/// from being overwhelmed by a burst of requests to different hosts.
+/// Maximum concurrent HTTP fetch requests. This caps native work and DNS
+/// lookups when the interface starts a burst of provider requests.
 const MAX_CONCURRENT_FETCHES: usize = 10;
 
 fn fetch_semaphore() -> &'static Semaphore {
@@ -20,18 +19,10 @@ fn fetch_semaphore() -> &'static Semaphore {
     SEM.get_or_init(|| Semaphore::new(MAX_CONCURRENT_FETCHES))
 }
 
-fn limit_concurrent_fetches(os: &str) -> bool {
-    os == "linux"
-}
-
-async fn acquire_fetch_permit() -> Result<Option<SemaphorePermit<'static>>, String> {
-    if !limit_concurrent_fetches(std::env::consts::OS) {
-        return Ok(None);
-    }
+async fn acquire_fetch_permit() -> Result<SemaphorePermit<'static>, String> {
     fetch_semaphore()
         .acquire()
         .await
-        .map(Some)
         .map_err(|error| format!("semaphore: {error}"))
 }
 
