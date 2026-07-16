@@ -1,4 +1,6 @@
+// @ts-expect-error Node test types are intentionally outside the browser-only tsconfig.
 import assert from "node:assert/strict";
+// @ts-expect-error Node test types are intentionally outside the browser-only tsconfig.
 import test from "node:test";
 import { createRequestScheduler } from "../src/lib/request-scheduler.ts";
 
