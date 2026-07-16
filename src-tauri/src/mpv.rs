@@ -669,8 +669,14 @@ pub async fn mpv_start(
     }
     spawn_event_loop(app.clone(), mpv_arc.clone(), event_ctx, want_embed, args.mac_edr.unwrap_or(false));
 
-    eprintln!("[harbor::mpv] loadfile {}", args.url);
-    mpv_argv_command(&*mpv_arc, &["loadfile", &args.url, "replace"]).map_err(|e| {
+    let start_at_sec = args.start_at_sec.filter(|start| *start > 0.0);
+    let start_option = start_at_sec.map(|start| format!("start={start}"));
+    let mut load_args = vec!["loadfile", args.url.as_str(), "replace", "0"];
+    if let Some(start_option) = start_option.as_deref() {
+        load_args.push(start_option);
+    }
+    eprintln!("[harbor::mpv] loadfile {} start_at_sec={:?}", args.url, start_at_sec);
+    mpv_argv_command(&*mpv_arc, &load_args).map_err(|e| {
         eprintln!("[harbor::mpv] loadfile FAILED: {}", e);
         format!("loadfile: {}", e)
     })?;
