@@ -20,6 +20,7 @@ import { flushCloudSync } from "@/views/player/hooks/use-stremio-sync";
 import { setNativeMemoryActive } from "@/lib/native-memory";
 import { useOverlayPinned } from "@/lib/overlay-pin";
 import { isMobileDevice, isWeb } from "@/lib/platform";
+import { makeSafeTauriUnlisten } from "@/lib/tauri-unlisten";
 import { activeLayout } from "@/lib/theme";
 import { useThemePreview } from "@/lib/theme-preview";
 import { DevErrorTrigger } from "@/components/dev-error-trigger";
@@ -756,7 +757,8 @@ function Shell({ onReady }: { onReady?: () => void }) {
         await flushCloudSync().catch(() => {});
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("harbor_flush_done").catch(() => {});
-      }).then((u) => {
+      }).then((rawUnlisten) => {
+        const u = makeSafeTauriUnlisten(rawUnlisten);
         if (cancelled) u();
         else unlisten = u;
       }),
