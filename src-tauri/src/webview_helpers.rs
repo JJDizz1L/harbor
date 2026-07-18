@@ -108,9 +108,6 @@ pub fn install_process_failure_watchdog(app: &tauri::AppHandle, label: &str) {
         let mut token: i64 = 0;
         match core.add_ProcessFailed(&handler, &mut token) {
             Ok(()) => {
-                // The handler must outlive the registration; the app never
-                // unregisters, so intentionally leak it.
-                std::mem::forget(handler);
                 eprintln!("[harbor::webview] ProcessFailed watchdog installed");
             }
             Err(e) => eprintln!("[harbor::webview] add_ProcessFailed FAILED: {:?}", e),
