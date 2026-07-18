@@ -528,6 +528,9 @@ pub fn run() {
             // can present as a stuck black window when composition fails.
             #[cfg(windows)]
             webview_helpers::apply_opaque(&app.handle(), "main");
+            // Recover from WebView2 render-process death by reloading in place,
+            // instead of leaving a blank window until app restart.
+            webview_helpers::install_process_failure_watchdog(&app.handle(), "main");
             #[cfg(windows)]
             install_maximize_guard(&app.handle());
             ensure_window_on_screen(&app.handle());
