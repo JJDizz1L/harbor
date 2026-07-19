@@ -29,6 +29,7 @@ mod pip;
 #[cfg(target_os = "macos")]
 mod pip_mac;
 mod power;
+mod process;
 mod airplay;
 mod settings_store;
 mod song_id;
@@ -688,6 +689,7 @@ pub fn run() {
             multiview::multiview_visibility,
             multiview::multiview_stop_all,
             http_fetch::harbor_fetch,
+            http_fetch::harbor_fetch_cancel,
             discord_rp::discord_set_presence,
             discord_rp::discord_clear,
             discord_rp::discord_set_enabled,
