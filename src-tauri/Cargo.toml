@@ -42,7 +42,7 @@ flate2 = "1"
 encoding_rs = "0.8"
 uuid = { version = "1", features = ["v4"] }
 futures-util = "0.3"
-libmpv2 = "4"
+libmpv2 = "5"
 libmpv2-sys = "4"
 libc = "0.2"
 base64 = "0.22"

@@ -4,8 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use libmpv2::events::{Event, EventContext, PropertyData};
-use libmpv2::mpv_node::MpvNode;
+use libmpv2::events::{Event, PropertyData};
 use libmpv2::{Format, Mpv, MpvInitializer};
 
 fn mpv_argv_command(mpv: &Mpv, argv: &[&str]) -> Result<(), String> {
@@ -164,10 +163,10 @@ const OBSERVED_PROPS: &[(&str, u64, PropertyKind)] = &[
     ("duration", 2, PropertyKind::Double),
     ("pause", 3, PropertyKind::Flag),
     ("eof-reached", 4, PropertyKind::Flag),
-    ("track-list", 5, PropertyKind::Node),
+    ("track-list", 5, PropertyKind::String),
     ("volume", 6, PropertyKind::Double),
     ("mute", 7, PropertyKind::Flag),
-    ("chapter-list", 8, PropertyKind::Node),
+    ("chapter-list", 8, PropertyKind::String),
     ("sub-delay", 9, PropertyKind::Double),
     ("audio-delay", 10, PropertyKind::Double),
     ("sub-text", 11, PropertyKind::String),
@@ -186,7 +185,6 @@ enum PropertyKind {
     Flag,
     Int64,
     String,
-    Node,
 }
 
 impl PropertyKind {
@@ -196,7 +194,6 @@ impl PropertyKind {
             PropertyKind::Flag => Format::Flag,
             PropertyKind::Int64 => Format::Int64,
             PropertyKind::String => Format::String,
-            PropertyKind::Node => Format::Node,
         }
     }
 }
@@ -243,27 +240,28 @@ pub struct AudioDevice {
 }
 
 fn read_audio_devices(mpv: &Mpv) -> Vec<AudioDevice> {
-    let node = match mpv.get_property::<MpvNode>("audio-device-list") {
+    let json = match mpv.get_property::<String>("audio-device-list") {
         Ok(n) => n,
         Err(_) => return Vec::new(),
     };
+    let arr: Vec<Value> = match serde_json::from_str(&json) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
     let mut out = Vec::new();
-    if let Some(arr) = node.array() {
-        for item in arr {
-            let mut name = String::new();
-            let mut description = String::new();
-            if let Some(map) = item.map() {
-                for (k, v) in map {
-                    match k.as_str() {
-                        "name" => name = v.str().unwrap_or_default().to_string(),
-                        "description" => description = v.str().unwrap_or_default().to_string(),
-                        _ => {}
-                    }
-                }
-            }
-            if !name.is_empty() && name != "auto" {
-                out.push(AudioDevice { name, description });
-            }
+    for item in &arr {
+        let name = item
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let description = item
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if !name.is_empty() && name != "auto" {
+            out.push(AudioDevice { name, description });
         }
     }
     out
@@ -713,16 +711,18 @@ pub async fn mpv_start(
 
     let mpv_arc = Arc::new(mpv);
 
-    let event_ctx = EventContext::new(mpv_arc.ctx);
+    let event_client = mpv_arc
+        .create_client(Some("harbor-event-loop"))
+        .map_err(|e| format!("event client create: {}", e))?;
     for (name, id, kind) in OBSERVED_PROPS {
-        if let Err(e) = event_ctx.observe_property(name, kind.fmt(), *id) {
+        if let Err(e) = event_client.observe_property(name, kind.fmt(), *id) {
             eprintln!("[mpv] observe {} failed: {}", name, e);
         }
     }
     spawn_event_loop(
         app.clone(),
         mpv_arc.clone(),
-        event_ctx,
+        event_client,
         want_embed,
         args.mac_edr.unwrap_or(false),
     );
@@ -820,7 +820,7 @@ fn record_event_poll_success(backoff: &mut EventErrorBackoff) {
 fn spawn_event_loop(
     app: AppHandle,
     mpv_keepalive: Arc<Mpv>,
-    mut ctx: EventContext,
+    mut event_client: Mpv,
     embedded: bool,
     mac_edr: bool,
 ) {
@@ -834,7 +834,7 @@ fn spawn_event_loop(
         let _ = mac_edr;
         let mut error_backoff = EventErrorBackoff::default();
         loop {
-            let res = ctx.wait_event(0.5);
+            let res = event_client.wait_event(0.5);
             match res {
                 Some(Ok(event)) => {
                     record_event_poll_success(&mut error_backoff);
@@ -949,12 +949,13 @@ fn event_to_payload(event: Event) -> Option<Value> {
     match event {
         Event::PropertyChange { name, change, .. } => {
             let data = match change {
-                PropertyData::Str(s) => Value::String(s.to_string()),
+                PropertyData::Str(s) => {
+                    serde_json::from_str(s).unwrap_or(Value::String(s.to_string()))
+                }
                 PropertyData::OsdStr(s) => Value::String(s.to_string()),
                 PropertyData::Flag(b) => Value::Bool(b),
                 PropertyData::Int64(i) => json!(i),
                 PropertyData::Double(f) => json!(f),
-                PropertyData::Node(n) => mpv_node_to_json(n),
             };
             Some(json!({ "event": "property-change", "name": name, "data": data }))
         }
@@ -980,24 +981,6 @@ fn event_to_payload(event: Event) -> Option<Value> {
             ..
         } => Some(json!({ "event": "log", "prefix": prefix, "level": level, "text": text })),
         _ => None,
-    }
-}
-
-fn mpv_node_to_json(node: MpvNode) -> Value {
-    match node {
-        MpvNode::None => Value::Null,
-        MpvNode::String(s) => Value::String(s),
-        MpvNode::Flag(b) => Value::Bool(b),
-        MpvNode::Int64(i) => json!(i),
-        MpvNode::Double(f) => json!(f),
-        MpvNode::ArrayIter(it) => Value::Array(it.map(mpv_node_to_json).collect()),
-        MpvNode::MapIter(it) => {
-            let mut obj = serde_json::Map::new();
-            for (k, v) in it {
-                obj.insert(k, mpv_node_to_json(v));
-            }
-            Value::Object(obj)
-        }
     }
 }
 
