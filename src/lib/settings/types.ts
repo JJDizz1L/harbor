@@ -1,8 +1,8 @@
-import type { ThemeSettings } from "@/lib/theme";
-import type { CustomList } from "@/lib/lists/types";
 import type { SourceRow } from "@/lib/custom-sources";
-import type { CustomStreamFilter } from "@/lib/streams/custom-filters";
 import type { UiLanguage } from "@/lib/i18n";
+import type { CustomList } from "@/lib/lists/types";
+import type { CustomStreamFilter } from "@/lib/streams/custom-filters";
+import type { ThemeSettings } from "@/lib/theme";
 
 export type StreamingService =
   | "netflix"
@@ -25,7 +25,12 @@ export type WebhookTrigger =
   | { event: "fromCountry"; countryCodes: string[] }
   | { event: "fromTraktAnticipated" }
   | { event: "fromTraktWatchlist" }
-  | { event: "liveTvEvent"; channelIds?: string[]; favoritesOnly?: boolean; leadMinutes?: number };
+  | {
+      event: "liveTvEvent";
+      channelIds?: string[];
+      favoritesOnly?: boolean;
+      leadMinutes?: number;
+    };
 
 export type ContentCategory = "anime" | "liveTv" | "sports" | "adult";
 
@@ -39,7 +44,12 @@ export type LetterboxdSettings = {
   hiddenCatalogs: string[];
   catalogOrder: string[];
   showRatingsOnPosters: boolean;
-  listRefs: Array<{ id: string; name: string; owner?: string; filmCount?: number }>;
+  listRefs: Array<{
+    id: string;
+    name: string;
+    owner?: string;
+    filmCount?: number;
+  }>;
 };
 
 export interface SimklGranularFilters {
@@ -236,12 +246,22 @@ export type Settings = {
   subStyle: "shadow" | "outline" | "box";
   subFontFamily: string;
   subBold: boolean;
-  customFonts: Array<{ id: string; name: string; format: string; dataUrl?: string }>;
+  customFonts: Array<{
+    id: string;
+    name: string;
+    format: string;
+    dataUrl?: string;
+  }>;
   subBoxOpacity: number;
   subBoxColor: string;
   subOpacity: number;
   subLineSpacing: number;
-  subProvidersEnabled: { wyzie: boolean; opensubtitles: boolean; jimaku: boolean; addons: boolean };
+  subProvidersEnabled: {
+    wyzie: boolean;
+    opensubtitles: boolean;
+    jimaku: boolean;
+    addons: boolean;
+  };
   subShowInPip: boolean;
   subtitleAutoSync: boolean;
   subtitlesOffByDefault: boolean;
@@ -283,7 +303,7 @@ export type Settings = {
   playerD3d11Flip: boolean;
   mpvExtraOptions: string;
   mpvQuality: "balanced" | "performance" | "quality";
-  mpvHwdec: "auto" | "on" | "off";
+  mpvHwdec: "auto" | "on" | "off" | "cuda" | "cuda-copy";
   mpvBufferBoost: boolean;
   mpvDownmixStereo: boolean;
   mpvTweaks: Record<string, string>;

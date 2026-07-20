@@ -614,6 +614,24 @@ pub async fn mpv_start(
             }
         }
     }
+    #[cfg(target_os = "linux")]
+    if crate::mpv_render_linux::nvidia_detected() {
+        // NVIDIA-optimized mpv settings:
+        //   opengl-pbo=yes         – Faster pixel upload via PBO (NVIDIA GL driver benefits most)
+        //   vd-lavc-dr=yes         – Direct rendering avoids a GPU-memory copy
+        //   hwdec-codecs=all       – Allow NVDEC for every codec the GPU supports
+        let nv_opts: &[(&str, &str)] = &[
+            ("opengl-pbo", "yes"),
+            ("vd-lavc-dr", "yes"),
+            ("hwdec-codecs", "all"),
+        ];
+        for (k, v) in nv_opts {
+            if let Err(e) = mpv.set_property(k, *v) {
+                eprintln!("[harbor::mpv] nvidia option {k}={v} FAILED: {e:?}");
+            }
+        }
+        eprintln!("[harbor::mpv] NVIDIA-optimized mpv options applied");
+    }
     let is_live = args.is_live.unwrap_or(false);
     if is_live {
         let _ = mpv.set_property("cache", "yes");

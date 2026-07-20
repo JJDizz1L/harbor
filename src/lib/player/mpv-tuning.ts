@@ -30,6 +30,8 @@ export function compileMpvOptions(s: Settings): string {
   const lines: string[] = [...(QUALITY_LINES[s.mpvQuality] ?? [])];
   if (s.mpvHwdec === "on") lines.push("hwdec=yes");
   else if (s.mpvHwdec === "off") lines.push("hwdec=no");
+  else if (s.mpvHwdec === "cuda") lines.push("hwdec=cuda");
+  else if (s.mpvHwdec === "cuda-copy") lines.push("hwdec=cuda-copy");
   if (s.mpvBufferBoost) {
     lines.push(
       "cache=yes",

@@ -206,23 +206,109 @@ fn native_display(backend: Backend) -> u64 {
     native as u64
 }
 
-pub fn enforce_nvidia_x11() {
-    if !std::path::Path::new("/proc/driver/nvidia/version").exists() {
-        return;
-    }
+/// Minimum NVIDIA driver version that safely supports Wayland + GTK GLArea.
+///
+/// - v545: Added GBM support (required by GTK's Wayland backend).
+/// - v555: Added explicit sync (fixes frame pacing and buffer sharing).
+///
+/// Drivers below 555 are known to crash when GTK's GLArea creates an EGL context
+/// on Wayland with the NVIDIA proprietary driver. The crash stems from the older
+/// EGLStreams codepath which GTK cannot use.
+const NVIDIA_WAYLAND_SAFE_VERSION: u32 = 555_00_00;
+
+/// Parses the NVIDIA kernel module version from `/proc/driver/nvidia/version`.
+///
+/// The file contains a line like:
+///   NVRM version: NVIDIA UNIX x86_64 Kernel Module  560.35.03  ...
+///
+/// Returns the version encoded as `major * 100_00_00 + minor * 100_00 + patch`
+/// for lexical comparison, or `None` if the file cannot be read or the version
+/// pattern does not match expected formats.
+fn nvidia_driver_version() -> Option<u32> {
+    let text = std::fs::read_to_string("/proc/driver/nvidia/version").ok()?;
+    // Look for the first token matching "d.d.d" after "Kernel Module"
+    let after_kmod = text.split("Kernel Module").nth(1)?;
+    let token = after_kmod.split_whitespace().find(|t| t.chars().filter(|&c| c == '.').count() == 2)?;
+    let mut parts = token.splitn(3, '.');
+    let major: u32 = parts.next()?.parse().ok()?;
+    let minor: u32 = parts.next()?.parse().ok()?;
+    let patch: u32 = parts.next()?.parse().ok()?;
+    Some(major * 100_00_00 + minor * 100_00 + patch)
+}
+
+pub(crate) fn nvidia_detected() -> bool {
+    std::path::Path::new("/proc/driver/nvidia/version").exists()
+}
+
+fn disable_webkit_dmabuf() {
     if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
         eprintln!("[harbor::mpv_linux] NVIDIA detected; setting WEBKIT_DISABLE_DMABUF_RENDERER=1 (WebKitGTK DMABUF renderer blanks on NVIDIA)");
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
-    let wayland = std::env::var("XDG_SESSION_TYPE")
+}
+
+fn is_wayland_session() -> bool {
+    std::env::var("XDG_SESSION_TYPE")
         .map(|v| v.eq_ignore_ascii_case("wayland"))
         .unwrap_or(false)
-        || std::env::var("WAYLAND_DISPLAY").map(|v| !v.is_empty()).unwrap_or(false);
-    if !wayland {
+        || std::env::var("WAYLAND_DISPLAY").map(|v| !v.is_empty()).unwrap_or(false)
+}
+
+fn version_label(encoded: u32) -> String {
+    format!(
+        "{}.{}.{}",
+        encoded / 100_00_00,
+        (encoded / 100_00) % 100,
+        encoded % 100,
+    )
+}
+
+fn force_gdk_x11(reason: &str) {
+    eprintln!("[harbor::mpv_linux] {reason}");
+    std::env::set_var("GDK_BACKEND", "x11");
+}
+
+pub fn enforce_nvidia_x11() {
+    if !nvidia_detected() {
         return;
     }
-    eprintln!("[harbor::mpv_linux] NVIDIA + Wayland detected; forcing GDK_BACKEND=x11 (EGL on NVIDIA-Wayland crashes the GL context)");
-    std::env::set_var("GDK_BACKEND", "x11");
+
+    disable_webkit_dmabuf();
+
+    if !is_wayland_session() {
+        return;
+    }
+
+    let version = nvidia_driver_version();
+    match version {
+        Some(v) if v >= NVIDIA_WAYLAND_SAFE_VERSION => {
+            // Driver is new enough — check the crash sentinel before committing
+            // to native Wayland. If the app has already crashed twice on this
+            // driver, fall back to X11 regardless of the version check.
+            if crate::nvidia_sentinel::check_sentinel(v) {
+                force_gdk_x11(&format!(
+                    "NVIDIA {} — crash sentinel triggered; forcing X11 fallback",
+                    version_label(v),
+                ));
+            } else {
+                eprintln!(
+                    "[harbor::mpv_linux] NVIDIA + Wayland detected (driver {} >= 555); keeping native Wayland",
+                    version_label(v),
+                );
+            }
+        }
+        Some(v) => {
+            force_gdk_x11(&format!(
+                "NVIDIA driver {} is below the safe 555 threshold; falling back to X11",
+                version_label(v),
+            ));
+        }
+        None => {
+            force_gdk_x11(
+                "NVIDIA + Wayland detected but driver version could not be determined; falling back to X11",
+            );
+        }
+    }
 }
 
 pub fn prepare(mpv_ctx: NonNull<mpv_handle>) -> Result<(), String> {

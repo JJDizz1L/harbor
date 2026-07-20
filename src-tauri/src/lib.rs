@@ -19,6 +19,7 @@ mod local_lib;
 mod modal_overlay;
 mod mpv;
 mod multiview;
+mod nvidia_sentinel;
 mod proc_mem;
 mod roku;
 #[cfg(target_os = "macos")]
@@ -54,6 +55,8 @@ pub(crate) fn shutdown_services(app: &tauri::AppHandle) {
     torrent_engine::stop();
     discord_rp::shutdown(app);
     crash_report::mark_clean_exit();
+    #[cfg(target_os = "linux")]
+    nvidia_sentinel::mark_clean_exit();
 }
 
 pub static CLOSE_FLUSH_DONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
