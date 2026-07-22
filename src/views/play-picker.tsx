@@ -342,6 +342,7 @@ export function PlayPicker({
     sourceEntry: lastSeriesSource,
     isCached,
     addons,
+    hasDebrids: debrids.length > 0,
     hasStrongAddon,
     isTorrentioStream,
     preferredLangs,

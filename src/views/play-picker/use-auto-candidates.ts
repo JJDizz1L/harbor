@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { isStreamDead } from "@/lib/dead-streams";
 import { engineP2pEligible } from "@/lib/torrent/stremio-stream";
 import type { ScoredStream } from "@/lib/streams/types";
-import { streamMatchesEntry, streamMatchesSource, type PlaybackEntry } from "@/lib/playback-history";
+import {
+  streamMatchesEntry,
+  streamMatchesSource,
+  type PlaybackEntry,
+} from "@/lib/playback-history";
 import type { SourceDescriptor } from "@/lib/together/protocol";
 import { buildMatchScores } from "@/lib/together/source-match";
 import { hostSourceStream } from "@/lib/together/host-stream";
@@ -17,6 +21,7 @@ export function useAutoCandidates(args: {
   sourceEntry: PlaybackEntry | null;
   isCached: (s: ScoredStream) => boolean;
   addons: Array<{ manifest?: { id?: string } }> | null;
+  hasDebrids: boolean;
   hasStrongAddon: boolean;
   isTorrentioStream: (s: ScoredStream) => boolean;
   preferredLangs: string[];
@@ -26,7 +31,22 @@ export function useAutoCandidates(args: {
   season?: number | null;
   episode?: number | null;
 }): ScoredStream[] {
-  const { filteredPicker, previousPlayback, sourceEntry, isCached, addons, hasStrongAddon, isTorrentioStream, preferredLangs, hostSource, prefer1080, preferPacks, season, episode } = args;
+  const {
+    filteredPicker,
+    previousPlayback,
+    sourceEntry,
+    isCached,
+    addons,
+    hasDebrids,
+    hasStrongAddon,
+    isTorrentioStream,
+    preferredLangs,
+    hostSource,
+    prefer1080,
+    preferPacks,
+    season,
+    episode,
+  } = args;
   return useMemo(() => {
     const hostFallback = (): ScoredStream[] => {
       if (!hostSource) return [];
@@ -60,12 +80,17 @@ export function useAutoCandidates(args: {
     });
     const matchScores = hostSource ? buildMatchScores(filteredPicker.all, hostSource) : null;
     const previousMatch = previousPlayback
-      ? filteredPicker.all.find((s) => streamMatchesEntry(s, previousPlayback)) ?? null
+      ? (filteredPicker.all.find((s) => streamMatchesEntry(s, previousPlayback)) ?? null)
       : null;
     const sorted = filteredPicker.all.slice().sort((a, b) => {
       if (matchScores) {
         const dm = (matchScores.get(b) ?? 0) - (matchScores.get(a) ?? 0);
         if (dm !== 0) return dm;
+      }
+      if (!hasDebrids) {
+        const au = a.url ? 0 : 1;
+        const bu = b.url ? 0 : 1;
+        if (au !== bu) return au - bu;
       }
       const aw = isWatchHub(a) ? 1 : 0;
       const bw = isWatchHub(b) ? 1 : 0;
@@ -114,8 +139,9 @@ export function useAutoCandidates(args: {
       seen.add(k);
       out.push(s);
     };
-     const sourceMatch =
-      sourceEntry ? filteredPicker.all.find((s) => streamMatchesSource(s, sourceEntry)) ?? null : null;
+    const sourceMatch = sourceEntry
+      ? (filteredPicker.all.find((s) => streamMatchesSource(s, sourceEntry)) ?? null)
+      : null;
     const instantPlayable = (s: ScoredStream | null) => !!s && (isCached(s) || !!s.url);
     if (!matchScores) {
       if (instantPlayable(sourceMatch)) push(sourceMatch);
@@ -126,11 +152,23 @@ export function useAutoCandidates(args: {
     const synthetic = hostFallback();
     if (synthetic.length > 0) return synthetic;
     if (hostSource) {
-      const ownBest = sorted.find(
-        (s) => !isStreamDead(s) && !isWatchHub(s) && !episodeConflict(s),
-      );
+      const ownBest = sorted.find((s) => !isStreamDead(s) && !isWatchHub(s) && !episodeConflict(s));
       if (ownBest) return [ownBest];
     }
     return [];
-  }, [filteredPicker, previousPlayback, sourceEntry, isCached, addons, hasStrongAddon, isTorrentioStream, preferredLangs, hostSource, prefer1080, preferPacks, season, episode]);
+  }, [
+    filteredPicker,
+    previousPlayback,
+    sourceEntry,
+    isCached,
+    addons,
+    hasStrongAddon,
+    isTorrentioStream,
+    preferredLangs,
+    hostSource,
+    prefer1080,
+    preferPacks,
+    season,
+    episode,
+  ]);
 }
