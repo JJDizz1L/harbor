@@ -3,6 +3,7 @@ import type { ScoredStream } from "@/lib/streams/types";
 import type { SourceDescriptor } from "@/lib/together/protocol";
 import { engineP2pEligible } from "@/lib/torrent/stremio-stream";
 import { hasInstantMarker, streamMatchesLangs } from "./picker-utils";
+import { diag } from "@/lib/auto-play-diag";
 
 const AUTO_SETTLE_MS = 1500;
 const AUTO_SETTLE_PACK_MS = 4000;
@@ -130,27 +131,27 @@ export function useAutoFire(args: {
 
   useEffect(() => {
     if (!autoActive || autoFiredRef.current) {
-      console.warn(
-        "[auto-fire] skip: autoActive=%s autoFiredRef=%s",
-        autoActive,
-        autoFiredRef.current,
-      );
+      diag("auto-fire skip: autoActive=", autoActive, "autoFired=", autoFiredRef.current);
       return;
     }
     if (rememberedHandledFirst) {
-      console.warn("[auto-fire] skip: rememberedHandledFirst");
+      diag("auto-fire skip: rememberedHandledFirst");
       return;
     }
     if (waitingForHostSource) {
-      console.warn("[auto-fire] skip: waitingForHostSource");
+      diag("auto-fire skip: waitingForHostSource");
       return;
     }
-    console.warn(
-      "[auto-fire] candidates=%d pipelineDone=%s autoSettleReady=%s resolving=%s attemptIdx=%d",
+    diag(
+      "auto-fire candidates=",
       autoCandidates.length,
+      "pipelineDone=",
       pipelineDone,
+      "settleReady=",
       autoSettleReady,
+      "resolving=",
       !!resolving,
+      "attemptIdx=",
       autoAttemptIdx,
     );
     const top = autoCandidates[0];
@@ -169,48 +170,51 @@ export function useAutoFire(args: {
         const now = performance.now();
         if (highConfidenceSinceRef.current == null) highConfidenceSinceRef.current = now;
         if (now - highConfidenceSinceRef.current < HIGH_CONFIDENCE_GRACE_MS) {
-          console.warn("[auto-fire] high-confidence grace period");
+          diag("auto-fire high-confidence grace period");
           return;
         }
       } else {
         highConfidenceSinceRef.current = null;
         if (!autoSettleReady) {
-          console.warn("[auto-fire] waiting for autoSettleReady");
+          diag("auto-fire waiting for autoSettleReady");
           return;
         }
       }
     }
     if (autoCandidates.length === 0) {
-      console.warn("[auto-fire] no candidates");
+      diag("auto-fire no candidates");
       return;
     }
     if (resolving) {
-      console.warn("[auto-fire] resolving in progress");
+      diag("auto-fire resolving in progress");
       return;
     }
     const idx = Math.min((attempt ?? 0) + autoAttemptIdx, autoCandidates.length - 1);
     const pick = autoCandidates[idx];
     if (!pick) {
-      console.warn("[auto-fire] pick is null at idx=%d", idx);
+      diag("auto-fire pick is null at idx=", idx);
       return;
     }
     const pickInstant = isCached(pick) || !!pick.url || (p2pAutoConsent && engineP2pEligible(pick));
     if (!pickInstant) {
       if (hasDebrids) {
-        console.warn("[auto-fire] pick not instant, cancelling (hasDebrids=%s)", hasDebrids);
+        diag("auto-fire pick not instant, cancelling (hasDebrids)");
         if (pipelineDone) setAutoCancelled(true);
         return;
       }
-      console.warn("[auto-fire] pick not instant but hasDebrids=false — proceeding anyway");
+      diag("auto-fire pick not instant but hasDebrids=false — proceeding");
     }
     autoFiredRef.current = true;
     const p2pConsentPick =
       !isCached(pick) && !pick.url && p2pAutoConsent && engineP2pEligible(pick);
-    console.warn(
-      "[auto-fire] FIRING idx=%d pickInstant=%s url=%s infoHash=%s",
+    diag(
+      "auto-fire FIRING idx=",
       idx,
+      "pickInstant=",
       pickInstant,
+      "url=",
       !!pick.url,
+      "infoHash=",
       !!pick.infoHash,
     );
     onPlay(pick, p2pConsentPick, p2pConsentPick, true);

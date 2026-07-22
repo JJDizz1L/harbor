@@ -57,6 +57,7 @@ import { usePickHandler } from "./play-picker/use-pick-handler";
 import { useActiveKid } from "@/lib/profiles";
 import { useAutoCandidates } from "./play-picker/use-auto-candidates";
 import { useAutoFire } from "./play-picker/use-auto-fire";
+import { diag } from "@/lib/auto-play-diag";
 import { useRoomInvite } from "./play-picker/use-room-invite";
 import { useAddons } from "./play-picker/use-addons";
 import { useImdbId } from "./play-picker/use-imdb-id";
@@ -252,7 +253,7 @@ export function PlayPicker({
     // addon stream (e.g. strict title-mismatch).  Surface the raw addon
     // data so the user sees what the addon actually found.
     if (all.length === 0 && debrids.length === 0 && result.raw.addon.length > 0) {
-      console.warn("[filteredPicker] raw fallback: %d raw addon streams", result.raw.addon.length);
+      diag("raw fallback: ", result.raw.addon.length, " raw addon streams");
       all = result.raw.addon.map((s) => ({
         ...parseStream(s),
         score: 0,
@@ -564,12 +565,16 @@ export function PlayPicker({
     return () => window.clearTimeout(t);
   }, [streamIds]);
   useEffect(() => {
-    console.warn(
-      "[auto-exhausted] autoPlay=%s pipelineDone=%s candidates=%d exhausted=%s cancelled=%s",
+    diag(
+      "exhausted check: autoPlay=",
       autoPlay,
+      "pipelineDone=",
       pipelineDone,
+      "candidates=",
       autoCandidates.length,
+      "exhausted=",
       autoExhausted,
+      "cancelled=",
       autoCancelled,
     );
     if (
@@ -579,7 +584,7 @@ export function PlayPicker({
       !autoExhausted &&
       !autoCancelled
     ) {
-      console.warn("[auto-exhausted] SETTING exhausted");
+      diag("SETTING exhausted");
       setAutoExhausted(true);
     }
   }, [autoPlay, pipelineDone, autoCandidates.length, autoExhausted, autoCancelled]);

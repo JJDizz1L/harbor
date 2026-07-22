@@ -20,6 +20,7 @@ import { type PlayEpisode, type PlayerSrc } from "@/lib/view";
 import { openInAppBrowser, openUrl } from "@/lib/window";
 import { enqueueDownload } from "@/lib/download/downloads-store";
 import { formatStreamQuality, humanError, isDebridFailure } from "./picker-utils";
+import { diag } from "@/lib/auto-play-diag";
 
 export function usePickHandler({
   meta,
@@ -127,12 +128,16 @@ export function usePickHandler({
         ? { season: episode.season ?? null, episode: episode.episode ?? null }
         : undefined;
       const r = await resolveStream(stream, debrids, ac.signal, userCommitted, forceP2p, hint);
-      console.warn(
-        "[pick-handler] resolveStream ok=%s code=%s via=%s url=%s infoHash=%s",
+      diag(
+        "resolveStream ok=",
         r.ok,
+        "code=",
         r.ok ? "—" : r.code,
+        "via=",
         r.ok ? r.via : "—",
+        "url=",
         !!stream.url,
+        "infoHash=",
         !!stream.infoHash,
       );
       if (ac.signal.aborted) return;
