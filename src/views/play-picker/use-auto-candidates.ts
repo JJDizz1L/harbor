@@ -133,7 +133,12 @@ export function useAutoCandidates(args: {
       if (isStreamDead(s)) return;
       if (isWatchHub(s)) return;
       if (episodeConflict(s)) return;
-      if (!isCached(s) && !s.url && !engineP2pEligible(s)) return;
+      if (!hasDebrids) {
+        // Without debrids any stream is a candidate — resolveStream will
+        // try direct URLs or P2P and advanceAuto retries on failure.
+      } else if (!isCached(s) && !s.url && !engineP2pEligible(s)) {
+        return;
+      }
       const k = key(s);
       if (seen.has(k)) return;
       seen.add(k);
