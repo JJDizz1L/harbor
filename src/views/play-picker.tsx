@@ -21,6 +21,7 @@ import { readSeasonLock } from "@/lib/season-lock";
 import { useSettings } from "@/lib/settings";
 import type { ScoredStream, Tier } from "@/lib/streams/types";
 import { isAddonRanked } from "@/lib/streams/addon-detect";
+import { parseStream } from "@/lib/streams/parser";
 
 import { useScrollMemory, useView, type PlayEpisode, type PlayerSrc } from "@/lib/view";
 import { torrentsDisabled } from "@/lib/torrent/stremio-stream";
@@ -247,6 +248,17 @@ export function PlayPicker({
   const filteredPicker = useMemo(() => {
     if (!result) return null;
     let all = result.picker.all;
+    // When no debrids are configured the trust pipeline may reject every
+    // addon stream (e.g. strict title-mismatch).  Surface the raw addon
+    // data so the user sees what the addon actually found.
+    if (all.length === 0 && debrids.length === 0 && result.raw.addon.length > 0) {
+      all = result.raw.addon.map((s) => ({
+        ...parseStream(s),
+        score: 0,
+        reasons: [],
+        tier: "720p" as Tier,
+      }));
+    }
     if (langFilter && preferredLangs.length > 0) {
       const langFiltered = all.filter((s) => streamMatchesLangs(s, preferredLangs));
       if (langFiltered.length > 0) all = langFiltered;
@@ -538,11 +550,6 @@ export function PlayPicker({
   }, [streamIds]);
   const addonsSettled = (pipelineDone && !discoveringAddons) || maxWaitElapsed;
 
-  const noStreamIds = addonsSettled && (!streamIds || streamIds.length === 0);
-  const noDebrids = addonsSettled && !!streamIds && streamIds.length > 0 && debrids.length === 0;
-  const noResults =
-    addonsSettled && !!streamIds && streamIds.length > 0 && allCount === 0 && debrids.length > 0;
-  const terminalEmpty = noStreamIds || noDebrids || noResults;
   const [stubBanner, setStubBanner] = useState<string | null>(null);
   useEffect(() => {
     const ev = consumeRecentStubEvent(8000);
@@ -591,7 +598,6 @@ export function PlayPicker({
     !isDownload &&
     ((autoActive && (streamIds === null || loading || autoCandidates.length > 0)) ||
       resolving != null);
-  void terminalEmpty;
 
   const pickerScrollKey = useMemo(() => {
     const attemptKey = typeof attempt === "number" ? `:a${attempt}` : "";

@@ -2,12 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Addon } from "@/lib/addons";
 import type { Meta } from "@/lib/cinemeta";
 import { useDebridClients } from "@/lib/debrid/registry";
-import { buildPickerConfigHash, clearOnePickerCache, getPickerCache, setPickerCache } from "@/lib/picker-cache";
+import {
+  buildPickerConfigHash,
+  clearOnePickerCache,
+  getPickerCache,
+  setPickerCache,
+} from "@/lib/picker-cache";
 import { useSettings } from "@/lib/settings";
 import { runPipeline, type PipelineResult } from "@/lib/streams/pipeline";
 import { buildEpisodePipelineInput } from "@/lib/streams/episode-pipeline-input";
 import type { PlayEpisode } from "@/lib/view";
 import { stampAddonOrder } from "./picker-utils";
+
+const SOURCE_TIMEOUT_MS = 30_000;
 
 type Settings = ReturnType<typeof useSettings>["settings"];
 
@@ -54,15 +61,20 @@ export function usePipelineResult({
   useEffect(() => {
     if (!streamIds || addons === null) return;
     const ac = new AbortController();
+    const sourceTimeout = setTimeout(() => ac.abort(), SOURCE_TIMEOUT_MS);
     const cached = getPickerCache(meta, episode, configHash);
     if (cached && cached.complete) {
+      clearTimeout(sourceTimeout);
       setResult({ ...cached.result, raw: { addon: [], library: [] } });
       setLoading(false);
       setPipelineDone(true);
       setFirstResultAt(performance.now());
       setAutoSettleReady(true);
       setResolveError(null);
-      return () => ac.abort();
+      return () => {
+        clearTimeout(sourceTimeout);
+        ac.abort();
+      };
     }
     setLoading(true);
     setResult(null);
@@ -84,7 +96,6 @@ export function usePipelineResult({
       }),
       ac.signal,
       (partial) => {
-        if (ac.signal.aborted) return;
         if (partial.picker.all.length === 0) return;
         stampAddonOrder(partial.picker.all, partial.raw.addon);
         setResult(partial);
@@ -94,7 +105,6 @@ export function usePipelineResult({
       },
     )
       .then((r) => {
-        if (ac.signal.aborted) return;
         stampAddonOrder(r.picker.all, r.raw.addon);
         setResult(r);
         setLoading(false);
@@ -103,13 +113,19 @@ export function usePipelineResult({
         setPickerCache(meta, episode, r, configHash);
       })
       .catch((e) => {
-        if (ac.signal.aborted) return;
-        setResolveError(e instanceof Error ? e.message : "Couldn't load streams. Check your addons and connection.");
+        setResolveError(
+          e instanceof Error
+            ? e.message
+            : "Couldn't load streams. Check your addons and connection.",
+        );
         setLoading(false);
         setPipelineDone(true);
         setAutoSettleReady(true);
       });
-    return () => ac.abort();
+    return () => {
+      clearTimeout(sourceTimeout);
+      ac.abort();
+    };
   }, [
     streamIds,
     imdbId,

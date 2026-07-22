@@ -51,11 +51,9 @@ export function PlayProvenance({
     }
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-danger/80">
-          No debrid configured
-        </p>
-        <p className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.18em] text-ink-subtle/80">
-          add one in settings · found by {addonChip}
+        <p className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.18em] text-ink-subtle/70">
+          <span>found by</span>
+          {addonChip}
         </p>
       </div>
     );

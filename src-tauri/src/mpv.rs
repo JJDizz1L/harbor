@@ -825,7 +825,8 @@ fn spawn_event_loop(
     mac_edr: bool,
 ) {
     std::thread::spawn(move || {
-        let mut last_timepos: Option<std::time::Instant> = None;
+        let mut prop_last_emit: std::collections::HashMap<String, std::time::Instant> =
+            std::collections::HashMap::new();
         #[cfg(windows)]
         let reassert_gen = Arc::new(std::sync::atomic::AtomicU64::new(0));
         #[cfg(not(windows))]
@@ -846,15 +847,20 @@ fn spawn_event_loop(
                         eprintln!("[harbor::mpv] end-file reason={:?}", reason);
                     }
                     if let Event::PropertyChange { name, .. } = &event {
-                        if *name == "time-pos" {
-                            let now = std::time::Instant::now();
-                            if let Some(prev) = last_timepos {
-                                if now.duration_since(prev).as_millis() < 200 {
-                                    continue;
-                                }
-                            }
-                            last_timepos = Some(now);
+                        let throttle_ms = match *name {
+                            "time-pos" => 200,
+                            "demuxer-cache-duration" | "paused-for-cache" => 300,
+                            _ => 80,
+                        };
+                        let now = std::time::Instant::now();
+                        let name_owned = name.to_string();
+                        let should_emit = prop_last_emit.get(&name_owned).map_or(true, |last| {
+                            now.duration_since(*last).as_millis() >= throttle_ms as u128
+                        });
+                        if !should_emit {
+                            continue;
                         }
+                        prop_last_emit.insert(name_owned, now);
                     }
                     #[cfg(windows)]
                     if embedded {
@@ -950,7 +956,11 @@ fn event_to_payload(event: Event) -> Option<Value> {
         Event::PropertyChange { name, change, .. } => {
             let data = match change {
                 PropertyData::Str(s) => {
-                    serde_json::from_str(s).unwrap_or(Value::String(s.to_string()))
+                    if name == "track-list" || name == "chapter-list" {
+                        serde_json::from_str(s).unwrap_or(Value::String(s.to_string()))
+                    } else {
+                        Value::String(s.to_string())
+                    }
                 }
                 PropertyData::OsdStr(s) => Value::String(s.to_string()),
                 PropertyData::Flag(b) => Value::Bool(b),

@@ -5,7 +5,7 @@ use std::ffi::{c_void, CString};
 use std::os::raw::{c_char, c_int};
 use std::ptr::NonNull;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, Ordering};
 
 use gtk::gdk;
 use gtk::glib;
@@ -65,6 +65,17 @@ static FBO_WIDTH: AtomicI32 = AtomicI32::new(-1);
 static FBO_HEIGHT: AtomicI32 = AtomicI32::new(-1);
 static LAST_SURFACE: AtomicU64 = AtomicU64::new(0);
 static FBO_ZERO_WARNED: AtomicBool = AtomicBool::new(false);
+
+/// Monotonic timestamp (Instant as u64 nanos) of the last successful render.
+/// Used by the watchdog to detect a hung render loop.
+static LAST_RENDER_TIME: AtomicU64 = AtomicU64::new(0);
+/// Number of consecutive render failures. Reset on success.
+static RENDER_FAIL_COUNT: AtomicU32 = AtomicU32::new(0);
+
+/// Maximum consecutive render failures before we emit a player-failure event.
+const MAX_RENDER_FAILS: u32 = 5;
+/// Wall-clock seconds without a successful render before the watchdog fires.
+const RENDER_WATCHDOG_SECS: u64 = 12;
 
 type GlProcLoader = unsafe extern "C" fn(*const c_char) -> *mut c_void;
 
@@ -366,6 +377,7 @@ pub fn install(gtk_window: &gtk::ApplicationWindow, vbox: &gtk::Box) -> Result<(
     overlay.show_all();
 
     let render_cell: Rc<RefCell<Option<RenderContext>>> = Rc::new(RefCell::new(None));
+    let render_cell_render = render_cell.clone();
     let mpv = pending.mpv;
     let backend = pending.backend;
     let display_native = pending.display_native;
@@ -380,16 +392,51 @@ pub fn install(gtk_window: &gtk::ApplicationWindow, vbox: &gtk::Box) -> Result<(
         area_clone.queue_render();
     });
 
+    // Eagerly initialise the mpv render context on realize so that
+    // driver-side setup (shader compilation, buffer negotiation) does
+    // not block the very first frame on the GTK main loop.
+    let render_cell_realize = render_cell_render.clone();
+    area.connect_realize(move |area| {
+        area.make_current();
+        match build_render_context(mpv, backend, display_native) {
+            Ok(mut rc) => {
+                rc.set_update_callback(|| schedule_redraw());
+                let mut slot = render_cell_realize.borrow_mut();
+                *slot = Some(rc);
+                eprintln!("[harbor::mpv_linux] render context created eagerly");
+            }
+            Err(e) => {
+                eprintln!(
+                    "[harbor::mpv_linux] eager render ctx init failed: {}",
+                    e
+                );
+            }
+        }
+    });
+
     area.connect_render(move |area, _ctx| {
-        let mut slot = render_cell.borrow_mut();
+        let mut slot = render_cell_render.borrow_mut();
         if slot.is_none() {
+            // Lazy fallback — the eager realise handler may have failed or
+            // not yet fired (e.g. unrealised initial queue_render).
             match build_render_context(mpv, backend, display_native) {
                 Ok(mut rc) => {
                     rc.set_update_callback(|| schedule_redraw());
                     *slot = Some(rc);
+                    eprintln!("[harbor::mpv_linux] render context created lazily");
                 }
                 Err(e) => {
-                    eprintln!("[harbor::mpv_linux] render ctx init failed: {}", e);
+                    let count =
+                        RENDER_FAIL_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+                    eprintln!(
+                        "[harbor::mpv_linux] render ctx init failed ({}): {}",
+                        count, e
+                    );
+                    if count >= MAX_RENDER_FAILS {
+                        eprintln!(
+                            "[harbor::mpv_linux] too many render failures, giving up"
+                        );
+                    }
                     return glib::Propagation::Proceed;
                 }
             }
@@ -408,6 +455,36 @@ pub fn install(gtk_window: &gtk::ApplicationWindow, vbox: &gtk::Box) -> Result<(
             vbox: vbox.clone(),
             web_view,
         })
+    });
+
+    // Render watchdog: if mpv's render stalls (NVIDIA Wayland deadlock,
+    // shader compilation hang, etc.), log a warning and reset the render
+    // context so the next render call starts fresh.
+    glib::timeout_add_seconds(4, move || {
+        let last = LAST_RENDER_TIME.load(Ordering::Relaxed);
+        if last == 0 {
+            return glib::ControlFlow::Continue;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64;
+        let elapsed = now.saturating_sub(last);
+        if elapsed > RENDER_WATCHDOG_SECS * 1_000_000_000 {
+            let fail = RENDER_FAIL_COUNT.load(Ordering::Relaxed);
+            eprintln!(
+                "[harbor::mpv_linux] RENDER WATCHDOG — no render for {}s, \
+                 fail_count={}, queueing render reset",
+                elapsed / 1_000_000_000,
+                fail,
+            );
+            EMBED.with(|slot| {
+                if let Some(embed) = slot.borrow().as_ref() {
+                    embed.area.queue_render();
+                }
+            });
+        }
+        glib::ControlFlow::Continue
     });
 
     area.queue_render();
@@ -470,7 +547,23 @@ fn do_render(rc: &RenderContext, area: &gtk::GLArea) {
     if fbo == 0 && !FBO_ZERO_WARNED.swap(true, Ordering::Relaxed) {
         eprintln!("[harbor::mpv_linux] WARNING: GtkGLArea FBO query returned 0; mpv will render to the default framebuffer and the video region will stay BLACK. glGetIntegerv or the GL proc loader likely failed to resolve.");
     }
-    let _ = rc.render::<()>(fbo, w, h, true);
+    match rc.render::<()>(fbo, w, h, true) {
+        Ok(()) => {
+            RENDER_FAIL_COUNT.store(0, Ordering::Relaxed);
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos() as u64;
+            LAST_RENDER_TIME.store(now, Ordering::Relaxed);
+        }
+        Err(e) => {
+            let count = RENDER_FAIL_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+            eprintln!(
+                "[harbor::mpv_linux] render FAILED ({} consecutive): {:?}",
+                count, e
+            );
+        }
+    }
 }
 
 // On Wayland, the GLArea fills the full window via GTK expand flags,
