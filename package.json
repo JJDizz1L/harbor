@@ -16,6 +16,8 @@
     "preview": "vp preview",
     "tauri": "tauri",
     "tauri:build:linux-system": "tauri build --config src-tauri/tauri.linux-system.conf.json",
+    "tauri:build:linux-bin": "tauri build --config src-tauri/tauri.linux-system.conf.json --no-bundle",
+    "tauri:build:linux-app": "tauri build --config src-tauri/tauri.linux-system.conf.json --bundles appimage",
     "setup": "pnpm run setup:binaries && pnpm run setup:libmpv && pnpm run setup:mpv && pnpm run setup:fonts",
     "setup:binaries": "node scripts/fetch-binaries.mjs",
     "setup:libmpv": "node scripts/fetch-libmpv.mjs",
