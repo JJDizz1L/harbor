@@ -127,6 +127,14 @@ export function usePickHandler({
         ? { season: episode.season ?? null, episode: episode.episode ?? null }
         : undefined;
       const r = await resolveStream(stream, debrids, ac.signal, userCommitted, forceP2p, hint);
+      console.warn(
+        "[pick-handler] resolveStream ok=%s code=%s via=%s url=%s infoHash=%s",
+        r.ok,
+        r.ok ? "—" : r.code,
+        r.ok ? r.via : "—",
+        !!stream.url,
+        !!stream.infoHash,
+      );
       if (ac.signal.aborted) return;
       if (!r.ok) {
         if (r.code === "web-page" && r.webUrl) {

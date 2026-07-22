@@ -129,9 +129,30 @@ export function useAutoFire(args: {
   ]);
 
   useEffect(() => {
-    if (!autoActive || autoFiredRef.current) return;
-    if (rememberedHandledFirst) return;
-    if (waitingForHostSource) return;
+    if (!autoActive || autoFiredRef.current) {
+      console.warn(
+        "[auto-fire] skip: autoActive=%s autoFiredRef=%s",
+        autoActive,
+        autoFiredRef.current,
+      );
+      return;
+    }
+    if (rememberedHandledFirst) {
+      console.warn("[auto-fire] skip: rememberedHandledFirst");
+      return;
+    }
+    if (waitingForHostSource) {
+      console.warn("[auto-fire] skip: waitingForHostSource");
+      return;
+    }
+    console.warn(
+      "[auto-fire] candidates=%d pipelineDone=%s autoSettleReady=%s resolving=%s attemptIdx=%d",
+      autoCandidates.length,
+      pipelineDone,
+      autoSettleReady,
+      !!resolving,
+      autoAttemptIdx,
+    );
     const top = autoCandidates[0];
     const isFirstAttempt = (attempt ?? 0) === 0 && autoAttemptIdx === 0;
     const langOk =
@@ -147,27 +168,51 @@ export function useAutoFire(args: {
       if (highConfidenceTop) {
         const now = performance.now();
         if (highConfidenceSinceRef.current == null) highConfidenceSinceRef.current = now;
-        if (now - highConfidenceSinceRef.current < HIGH_CONFIDENCE_GRACE_MS) return;
+        if (now - highConfidenceSinceRef.current < HIGH_CONFIDENCE_GRACE_MS) {
+          console.warn("[auto-fire] high-confidence grace period");
+          return;
+        }
       } else {
         highConfidenceSinceRef.current = null;
-        if (!autoSettleReady) return;
+        if (!autoSettleReady) {
+          console.warn("[auto-fire] waiting for autoSettleReady");
+          return;
+        }
       }
     }
-    if (autoCandidates.length === 0) return;
-    if (resolving) return;
+    if (autoCandidates.length === 0) {
+      console.warn("[auto-fire] no candidates");
+      return;
+    }
+    if (resolving) {
+      console.warn("[auto-fire] resolving in progress");
+      return;
+    }
     const idx = Math.min((attempt ?? 0) + autoAttemptIdx, autoCandidates.length - 1);
     const pick = autoCandidates[idx];
-    if (!pick) return;
+    if (!pick) {
+      console.warn("[auto-fire] pick is null at idx=%d", idx);
+      return;
+    }
     const pickInstant = isCached(pick) || !!pick.url || (p2pAutoConsent && engineP2pEligible(pick));
     if (!pickInstant) {
       if (hasDebrids) {
+        console.warn("[auto-fire] pick not instant, cancelling (hasDebrids=%s)", hasDebrids);
         if (pipelineDone) setAutoCancelled(true);
         return;
       }
+      console.warn("[auto-fire] pick not instant but hasDebrids=false — proceeding anyway");
     }
     autoFiredRef.current = true;
     const p2pConsentPick =
       !isCached(pick) && !pick.url && p2pAutoConsent && engineP2pEligible(pick);
+    console.warn(
+      "[auto-fire] FIRING idx=%d pickInstant=%s url=%s infoHash=%s",
+      idx,
+      pickInstant,
+      !!pick.url,
+      !!pick.infoHash,
+    );
     onPlay(pick, p2pConsentPick, p2pConsentPick, true);
   }, [
     autoActive,
