@@ -306,9 +306,6 @@ async fn ensure_session(app: &AppHandle) -> Result<Arc<Session>, String> {
     if let Some(s) = current_session() {
         return Ok(s);
     }
-    if crate::settings_store::read_torrents_disabled(app) {
-        return Err("torrents disabled in settings".to_string());
-    }
     init(app.clone()).await?;
     current_session().ok_or_else(|| "engine failed to initialize".to_string())
 }
