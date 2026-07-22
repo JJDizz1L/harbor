@@ -503,6 +503,7 @@ export function PlayPicker({
     isCached,
     p2pAutoConsent,
     preferredLangs,
+    hasDebrids: debrids.length > 0,
     hasStrongAddon,
     isTorrentioStream,
     expectHostSource,
